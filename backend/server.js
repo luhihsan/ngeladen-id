@@ -3,18 +3,20 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-
-// 1. IMPORT ROUTER YANG UDAH LU BIKIN
-const authRoutes = require('./src/routes/authRoutes'); // Pastikan path-nya sesuai dengan letak folder lu
-
 const app = express();
+const path = require('path');
+
+const authRoutes = require('./src/routes/authRoutes');
+const userRoutes = require('./src/routes/userRoutes');
+const suggestionRoutes = require('./src/routes/suggestionRoutes');
 
 app.use(cors());
 app.use(express.json());
 
-// 2. DAFTARKAN ROUTER KE EXPRESS
-// Ini artinya semua request ke /api/auth akan diarahkan ke authRoutes
+app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/suggestions', suggestionRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 console.log("Mencoba connect ke:", process.env.MONGO_URI);
 
@@ -23,13 +25,12 @@ mongoose.connect(process.env.MONGO_URI, {
   serverSelectionTimeoutMS: 5000, 
 })
 .then(() => {
-  console.log("✅ Mantap! Database Mongoose berhasil connect!");
+  console.log("Mongoose berhasil connect!");
 })
 .catch((err) => {
   console.error("❌ Gagal connect database:", err.message);
 });
 
-// 3. NYALAKAN SERVER AGAR LISTEN DI PORT 5000
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server backend berhasil jalan dan siap menerima request di port ${PORT}`);

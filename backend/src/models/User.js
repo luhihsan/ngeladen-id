@@ -2,6 +2,14 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+// Skema untuk detail Surat Peringatan
+const spSchema = new mongoose.Schema({
+  spNumber: { type: String, required: true },
+  reason: { type: String, required: true },
+  fileUrl: { type: String }, // Menyimpan path/URL file Word/PDF
+  createdAt: { type: Date, default: Date.now }
+});
+
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
@@ -19,34 +27,32 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Ketua', 'Sekretaris', 'Bendahara', 'Kedisiplinan', 'Infak', 'Bekakas', 'Anggota'],
+    enum: ['Ketua', 'Wakil Ketua', 'Sekretaris', 'Bendahara', 'Kedisiplinan', 'Infak', 'Bekakas', 'Anggota'],
     default: 'Anggota',
   },
   status: {
     type: String,
-    enum: ['Aktif', 'Pasif'],
+    enum: ['Aktif', 'Pasif', 'Keluar'], // Penambahan status Keluar
     default: 'Aktif',
+  },
+  statusReason: {
+    type: String, // Contoh: "Magang 6 bulan" atau "Sudah menikah"
+    default: '',
+  },
+  suratPeringatan: {
+    type: [spSchema],
+    default: [],
   }
 }, { timestamps: true });
 
-/**
- * Middleware Pre-Save (Mongoose Hook)
- * Bertugas melakukan hashing pada password sebelum disimpan ke database
- * untuk mencegah kebocoran kredensial (plaintext password).
- */
 userSchema.pre('save', async function (next) {
-  // Jika password tidak diubah, lanjutkan tanpa hashing ulang
   if (!this.isModified('password')) {
     next();
   }
-  // Generate salt dan hash password
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-/**
- * Method untuk membandingkan password input dengan hash di database.
- */
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
