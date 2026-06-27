@@ -9,6 +9,7 @@ const path = require('path');
 const authRoutes = require('./src/routes/authRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const suggestionRoutes = require('./src/routes/suggestionRoutes');
+const transactionRoutes = require('./src/routes/transactionRoutes');
 
 app.use(cors());
 app.use(express.json());
@@ -17,6 +18,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/transactions', transactionRoutes);
 
 console.log("Mencoba connect ke:", process.env.MONGO_URI);
 
