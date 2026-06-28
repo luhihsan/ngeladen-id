@@ -95,6 +95,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       allowedRoles: ['Ketua', 'Bendahara'],
     },
     {
+      title: 'Buku Kas Wajib',
+      path: '/dashboard/keuangan/wajib',
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 00-2 2h5a2 2 0 002-2" />
+        </svg>
+      ),
+      allowedRoles: ['Ketua', 'Wakil Ketua', 'Sekretaris', 'Bendahara', 'Kedisiplinan', 'Infak', 'Bekakas', 'Anggota'], 
+    },
+    {
       title: 'Notulensi & Jadwal',
       path: '/dashboard/sekretariat',
       icon: (

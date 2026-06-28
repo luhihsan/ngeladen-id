@@ -8,7 +8,6 @@ test.describe('Modul Kedisiplinan: Manajemen Kelompok & Absensi', () => {
   test('Positive: Seksi Kedisiplinan Bisa Mengelola Absensi & Denda', async ({ page }) => {
     // 1. Login sebagai Kedisiplinan
     await page.goto('/login');
-    // Ganti dengan username Kedisiplinan yang beneran ada di database lu
     await page.getByPlaceholder('Masukkan Username').fill('intan_disiplin'); 
     await page.getByPlaceholder('Masukan Password').fill('12345678');
     await page.getByRole('button', { name: 'Masuk ke Sistem' }).click();
@@ -19,7 +18,7 @@ test.describe('Modul Kedisiplinan: Manajemen Kelompok & Absensi', () => {
     await expect(page.locator('h1:has-text("Biro Kedisiplinan & Laden")')).toBeVisible();
 
     // 3. Tes Simpan Absensi (Otomatis memicu denda Alpa)
-    await page.click('button:has-text("📋 Absensi Sesi Kegiatan")');
+    await page.click('button:has-text("Absensi Sesi Kegiatan")');
     
     // Cari agenda pertama dan buka absennya
     const btnBukaAbsen = page.locator('button:has-text("Buka Absen")').first();
