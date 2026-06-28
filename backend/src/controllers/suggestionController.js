@@ -1,40 +1,60 @@
 const Suggestion = require('../models/Suggestion');
 
-/**
- * @desc    Mengirim masukan/saran baru
- * @route   POST /api/suggestions
- * @access  Private (Semua anggota login bisa mengirim)
- */
 const createSuggestion = async (req, res) => {
-  const { content, isAnonymous } = req.body;
   try {
+    const { content, isAnonymous } = req.body;
     const suggestion = await Suggestion.create({
       content,
       isAnonymous,
-      // Jika anonim, ID pengirim tidak disave (atau disave tapi disembunyikan, ini pilihan desain. Kita pilih tidak disave agar benar-benar anonim)
-      user: isAnonymous ? null : req.user._id, 
+      createdBy: req.user._id
     });
     res.status(201).json(suggestion);
   } catch (error) {
-    res.status(500).json({ message: 'Gagal mengirim masukan', error: error.message });
+    res.status(500).json({ message: 'Gagal mengirim aspirasi', error: error.message });
   }
 };
 
-/**
- * @desc    Melihat daftar masukan
- * @route   GET /api/suggestions
- * @access  Private (Hanya Ketua dan Wakil Ketua)
- */
 const getSuggestions = async (req, res) => {
   try {
-    // Populate untuk menarik nama pengirim (jika tidak anonim)
-    const suggestions = await Suggestion.find()
-      .populate('user', 'fullName role')
-      .sort({ createdAt: -1 }); // Sorting dari yang terbaru
-    res.json(suggestions);
+    let query = {};
+    const isKetua = ['Ketua', 'Wakil Ketua'].includes(req.user.role);
+    
+    // Jika bukan Ketua, HANYA BISA MELIHAT aspirasinya sendiri
+    if (!isKetua) {
+      query = { createdBy: req.user._id };
+    }
+
+    const suggestions = await Suggestion.find(query)
+      .populate('createdBy', 'fullName role')
+      .sort({ createdAt: -1 });
+
+    // Format anonimitas agar nama pengirim tidak bocor ke Ketua jika diceklis
+    const formatted = suggestions.map(s => {
+      const doc = s.toJSON();
+      if (doc.isAnonymous && isKetua) {
+        doc.createdBy = { fullName: 'Anggota (Anonim)', role: 'Rahasia' };
+      }
+      return doc;
+    });
+
+    res.json(formatted);
   } catch (error) {
-    res.status(500).json({ message: 'Gagal mengambil masukan', error: error.message });
+    res.status(500).json({ message: 'Gagal mengambil data aspirasi', error: error.message });
   }
 };
 
-module.exports = { createSuggestion, getSuggestions };
+const respondSuggestion = async (req, res) => {
+  try {
+    const { response } = req.body;
+    const suggestion = await Suggestion.findByIdAndUpdate(
+      req.params.id,
+      { status: 'Selesai', response },
+      { new: true }
+    );
+    res.json(suggestion);
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal menanggapi aspirasi', error: error.message });
+  }
+};
+
+module.exports = { createSuggestion, getSuggestions, respondSuggestion };

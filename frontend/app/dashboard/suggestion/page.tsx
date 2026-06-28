@@ -1,4 +1,3 @@
-// frontend/app/dashboard/masukan/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,19 +7,27 @@ interface Suggestion {
   _id: string;
   content: string;
   isAnonymous: boolean;
+  status: 'Pending' | 'Selesai';
+  response: string;
   createdAt: string;
-  user?: {
-    fullName: string;
-    role: string;
-  };
+  createdBy?: { fullName: string; role: string };
 }
 
-export default function KotakMasukanPage() {
+export default function SuggestionPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [userRole, setUserRole] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'Pending' | 'Selesai'>('Pending');
+
+  // Modal Tindak Lanjut
+  const [isRespondOpen, setIsRespondOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState('');
+  const [responseText, setResponseText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    const role = JSON.parse(localStorage.getItem('userInfo') || '{}').role;
+    setUserRole(role || '');
     loadSuggestions();
   }, []);
 
@@ -29,63 +36,142 @@ export default function KotakMasukanPage() {
       const data = await fetchAPI('/suggestions', { method: 'GET' });
       setSuggestions(data);
     } catch (err: any) {
-      setError(err.message);
+      alert(err.message || 'Gagal memuat aspirasi');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (isLoading) return <div className="p-4 text-center text-slate-500 animate-pulse">Memuat aspirasi...</div>;
-  if (error) return <div className="p-4 text-red-500 bg-red-50 rounded-xl">{error}</div>;
+  const handleOpenRespond = (id: string) => {
+    setSelectedId(id);
+    setResponseText('');
+    setIsRespondOpen(true);
+  };
+
+  const handleRespondSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await fetchAPI(`/suggestions/${selectedId}/respond`, {
+        method: 'PUT',
+        body: JSON.stringify({ response: responseText })
+      });
+      setIsRespondOpen(false);
+      loadSuggestions();
+    } catch (err: any) {
+      alert(err.message || 'Gagal menanggapi aspirasi');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filteredData = suggestions.filter(s => s.status === activeTab);
+  const isKetua = ['Ketua', 'Wakil Ketua'].includes(userRole);
+
+  if (isLoading) return <div className="p-4 text-slate-500 animate-pulse">Memuat data aspirasi...</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Kotak Masukan</h1>
-          <p className="text-sm text-slate-500">Aspirasi, kritik, dan saran dari anggota</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">{isKetua ? 'Kelola Kotak Masukan' : 'Riwayat Aspirasi Saya'}</h1>
+        <p className="text-sm text-slate-500">
+          {isKetua ? 'Tanggapi kritik, saran, dan ide dari warga/anggota organisasi.' : 'Pantau status tindak lanjut dari aspirasi yang Anda berikan.'}
+        </p>
       </div>
 
-      {suggestions.length === 0 ? (
-        <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
-          <p className="text-slate-500">Belum ada masukan yang masuk.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {suggestions.map((item) => (
-            <div key={item._id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative">
-              {/* Tanda jika anonim */}
-              {item.isAnonymous ? (
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold mb-4">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  Pengirim Anonim
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold">
-                    {item.user?.fullName.charAt(0)}
+      {/* Tabs Control */}
+      <div className="flex gap-2 border-b border-slate-200">
+        <button 
+          onClick={() => setActiveTab('Pending')}
+          className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'Pending' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Belum Ditanggapi
+        </button>
+        <button 
+          onClick={() => setActiveTab('Selesai')}
+          className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'Selesai' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Selesai (Ada Tindak Lanjut)
+        </button>
+      </div>
+
+      {/* Data List */}
+      <div className="space-y-4">
+        {filteredData.length === 0 ? (
+          <div className="bg-white rounded-2xl p-8 text-center border border-slate-200 text-slate-500 text-sm">
+            Tidak ada aspirasi pada kategori ini.
+          </div>
+        ) : (
+          filteredData.map((item) => (
+            <div key={item._id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-xs">
+                    {item.createdBy?.fullName.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900">{item.user?.fullName}</p>
-                    <p className="text-xs font-medium text-slate-500">{item.user?.role}</p>
+                    <p className="text-sm font-bold text-slate-900">{item.createdBy?.fullName}</p>
+                    <p className="text-[10px] text-slate-500">{new Date(item.createdAt).toLocaleDateString('id-ID')}</p>
                   </div>
+                </div>
+                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold ${item.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {item.status.toUpperCase()}
+                </span>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-sm text-slate-800 font-medium">
+                "{item.content}"
+              </div>
+
+              {item.status === 'Selesai' && item.response && (
+                <div className="mt-2 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 text-sm">
+                  <p className="text-[10px] font-bold text-indigo-600 mb-1 uppercase tracking-wider">Tanggapan Ketua:</p>
+                  <p className="text-indigo-900 font-medium">{item.response}</p>
                 </div>
               )}
 
-              <p className="text-slate-700 leading-relaxed text-sm bg-slate-50 p-4 rounded-xl border border-slate-100">
-                "{item.content}"
-              </p>
-              
-              <div className="mt-4 text-right">
-                <span className="text-xs text-slate-400 font-medium">
-                  Dikirim: {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
+              {isKetua && item.status === 'Pending' && (
+                <div className="pt-2 border-t border-slate-100 flex justify-end">
+                  <button
+                    onClick={() => handleOpenRespond(item._id)}
+                    className="px-5 py-2 bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs rounded-xl transition-colors shadow-sm"
+                  >
+                    Tanggapi & Selesaikan
+                  </button>
+                </div>
+              )}
             </div>
-          ))}
+          ))
+        )}
+      </div>
+
+      {/* Modal Tindak Lanjut */}
+      {isRespondOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-lg font-bold text-slate-900">Tindak Lanjut Aspirasi</h3>
+              <p className="text-xs text-slate-500 mt-1">Berikan tanggapan resmi. Aspirasi akan ditandai selesai.</p>
+            </div>
+            <form onSubmit={handleRespondSubmit} className="p-6 space-y-4">
+              <textarea
+                required
+                rows={4}
+                placeholder="Tuliskan langkah konkrit atau jawaban dari aspirasi tersebut..."
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none font-medium text-slate-900"
+                value={responseText}
+                onChange={(e) => setResponseText(e.target.value)}
+              />
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setIsRespondOpen(false)} className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm">
+                  Batal
+                </button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 disabled:opacity-50">
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan Tanggapan'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
