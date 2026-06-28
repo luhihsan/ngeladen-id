@@ -1,4 +1,3 @@
-// backend/src/models/Agenda.js
 const mongoose = require('mongoose');
 
 const agendaSchema = new mongoose.Schema({
@@ -11,7 +10,8 @@ const agendaSchema = new mongoose.Schema({
   },
   location: { type: String, required: true },
   description: { type: String, default: '' },
-  status: { type: String, enum: ['Aktif', 'Selesai'], default: 'Aktif' }, 
+  status: { type: String, enum: ['Aktif', 'Selesai'], default: 'Aktif' },
+  fineAmount: { type: Number, default: 0 },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 

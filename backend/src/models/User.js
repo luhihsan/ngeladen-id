@@ -1,12 +1,10 @@
 // backend/src/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-
-// Skema untuk detail Surat Peringatan
 const spSchema = new mongoose.Schema({
   spNumber: { type: String, required: true },
   reason: { type: String, required: true },
-  fileUrl: { type: String }, // Menyimpan path/URL file Word/PDF
+  fileUrl: { type: String }, 
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -32,17 +30,28 @@ const userSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Aktif', 'Pasif', 'Keluar'], // Penambahan status Keluar
+    enum: ['Aktif', 'Pasif', 'Keluar'], 
     default: 'Aktif',
   },
   statusReason: {
-    type: String, // Contoh: "Magang 6 bulan" atau "Sudah menikah"
+    type: String, 
     default: '',
+  },
+  gender: {
+    type: String,
+    enum: ['Laki-laki', 'Perempuan'],
+    required: true,
+    default: [],
   },
   suratPeringatan: {
     type: [spSchema],
     default: [],
-  }
+  },
+  occupationStatus: {
+  type: String,
+  enum: ['Pelajar/Mahasiswa', 'Bekerja'],
+  default: [],
+  },
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {

@@ -130,4 +130,26 @@ const deleteTransaction = async (req, res) => {
   }
 };
 
-module.exports = { createTransaction, getTransactions, updateTransaction, deleteTransaction };
+const validateTransaction = async (req, res) => {
+  const { status } = req.body; 
+  try {
+    const transaction = await Transaction.findById(req.params.id);
+    if (!transaction) return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
+
+    transaction.status = status;
+    await transaction.save();
+
+    // Jika terkait dengan Denda Kedisiplinan, update juga status dendanya
+    if (transaction.fineRef) {
+      const Fine = require('../models/Discipline').Fine;
+      const fineUpdateStatus = status === 'Approved' ? 'Lunas' : 'Belum Bayar';
+      await Fine.findByIdAndUpdate(transaction.fineRef, { status: fineUpdateStatus });
+    }
+
+    res.json({ success: true, message: `Transaksi berhasil di-${status}` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { createTransaction, getTransactions, updateTransaction, deleteTransaction, validateTransaction };

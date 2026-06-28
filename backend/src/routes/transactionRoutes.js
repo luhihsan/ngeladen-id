@@ -4,11 +4,13 @@ const { createTransaction, getTransactions, updateTransaction, deleteTransaction
 const { protect, authorizeRole } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
+const { validateTransaction } = require('../controllers/transactionController');
 
 router.use(protect);
 router.get('/', getTransactions);
 router.post('/', authorizeRole('Bendahara'), createTransaction);
 router.put('/:id', authorizeRole('Bendahara'), updateTransaction);
 router.delete('/:id', authorizeRole('Bendahara'), deleteTransaction);
+router.put('/:id/validate', authorizeRole('Bendahara'), validateTransaction);
 
 module.exports = router;
