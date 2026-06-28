@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import React from 'react';
 
 interface UserInfo {
   _id: string;
@@ -17,14 +16,14 @@ interface UserInfo {
 interface MenuItem {
   title: string;
   path: string;
-  icon: React.ReactNode; 
+  icon: React.ReactNode;
   allowedRoles: string[];
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile
-  const [isCollapsed, setIsCollapsed] = useState(false); // Desktop toggle
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -96,7 +95,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       ),
-      allowedRoles: ['Ketua', 'Sekretaris'],
+      // REVISI DISINI: Menu dibuka untuk SEMUA role agar bisa melihat jadwal & notulensi
+      allowedRoles: ['Ketua', 'Wakil Ketua', 'Sekretaris', 'Bendahara', 'Kedisiplinan', 'Infak', 'Bekakas', 'Anggota'],
     },
     {
       title: 'Kedisiplinan & Laden',
@@ -138,7 +138,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar Overlay (Mobile) */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/50 z-20 lg:hidden backdrop-blur-sm"
@@ -146,7 +145,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* Sidebar Content */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-30 bg-white border-r border-slate-200 transform transition-all duration-300 ease-in-out flex flex-col 
         ${isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'} 
         ${isCollapsed ? 'lg:w-20' : 'lg:w-72'}`}
@@ -189,17 +187,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 hover:shadow-md'
             }`}
           >
-            <svg className={`w-5 h-5 transition-transform duration-500 ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
             </svg>
             {!isCollapsed && <span className="text-sm">Tutup Panel</span>}
           </button>
 
-          {/* Tombol Logout */}
           <button 
             onClick={handleLogout}
             title={isCollapsed ? 'Keluar Sistem' : ''}
-            className={`flex items-center gap-3 px-4 py-3 w-full rounded-xl text-red-600 hover:bg-red-50 transition-colors font-medium ${isCollapsed ? 'justify-center px-0' : ''}`}
+            className={`flex items-center gap-3 px-4 py-3 w-full rounded-2xl text-red-600 hover:bg-red-50 transition-colors font-medium ${isCollapsed ? 'justify-center px-0' : ''}`}
           >
             <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -209,9 +206,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Topbar */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shrink-0">
           <div className="flex items-center gap-4">
             <button 
@@ -237,7 +232,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        {/* Dynamic Page Content */}
         <div className="flex-1 overflow-auto p-4 sm:p-8 bg-slate-50">
           {children}
         </div>
