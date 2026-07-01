@@ -17,7 +17,7 @@ const generateToken = (id, role) => {
  * @access  Public (Nantinya bisa dibatasi hanya Ketua yang bisa create)
  */
 const registerUser = async (req, res) => {
-  const { username, password, fullName, role } = req.body;
+  const { username, password, fullName, role, gender, occupationStatus } = req.body;
 
   try {
     const userExists = await User.findOne({ username });
@@ -29,7 +29,9 @@ const registerUser = async (req, res) => {
       username,
       password,
       fullName,
-      role
+      role,
+      gender,            
+      occupationStatus  
     });
 
     if (user) {

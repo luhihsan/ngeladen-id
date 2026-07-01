@@ -62,18 +62,30 @@ export default function KeuanganPage() {
   }, []);
 
   useEffect(() => {
-    // Hanya tampilkan kas yang disetujui (Approved) di Buku Jurnal Utama & Laporan Bulanan
-    let result = transactions.filter(t => t.status === 'Approved');
-    
-    if (filterMonth) result = result.filter(t => new Date(t.createdAt).getMonth() + 1 === parseInt(filterMonth));
-    if (filterYear) result = result.filter(t => new Date(t.createdAt).getFullYear() === parseInt(filterYear));
-    
-    setFilteredTransactions(result);
-    
-    // Pisahkan kas berstatus Pending ke antrean validasi internal Bendahara
-    const pendingList = transactions.filter(t => t.status === 'Pending');
-    setPendingTransactions(pendingList);
-  }, [transactions, filterMonth, filterYear]);
+  let approvedList = transactions.filter(t => t.status === 'Approved');
+  let masuk = 0;
+  let keluar = 0;
+  
+  approvedList.forEach(t => {
+    const nominal = Number(t.amount) || 0;
+    if (t.type === 'Masuk') masuk += nominal;
+    if (t.type === 'Keluar') keluar += nominal;
+  });
+  
+  setSummary({
+    totalSaldo: masuk - keluar,
+    totalMasuk: masuk,
+    totalKeluar: keluar
+  });
+  
+  if (filterMonth) approvedList = approvedList.filter(t => new Date(t.createdAt).getMonth() + 1 === parseInt(filterMonth));
+  if (filterYear) approvedList = approvedList.filter(t => new Date(t.createdAt).getFullYear() === parseInt(filterYear));
+  
+  setFilteredTransactions(approvedList);
+  
+  const pendingList = transactions.filter(t => t.status === 'Pending');
+  setPendingTransactions(pendingList);
+}, [transactions, filterMonth, filterYear]);
 
   const loadFinanceData = async () => {
     try {

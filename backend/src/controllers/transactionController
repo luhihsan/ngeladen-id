@@ -1,135 +1,93 @@
 // backend/src/controllers/transactionController.js
 const Transaction = require('../models/Transaction');
 
-/**
- * @desc    Mencatat transaksi kas baru (Debit/Kredit)
- * @route   POST /api/transactions
- * @access  Private (Hanya Bendahara, Wakil Bendahara, dan Ketua)
- */
-const createTransaction = async (req, res) => {
-  const { description, type, amount, section } = req.body;
-
-  try {
-    let receiptNumber = null;
-
-    // Jika transaksi bertipe keluar (Kredit), buat nomor nota otomatis
-    if (type === 'Keluar') {
-      const timestamp = Date.now().toString().slice(-6);
-      receiptNumber = `NOTA/OUT/${new Date().getFullYear()}/${timestamp}`;
-    }
-
-    const transaction = await Transaction.create({
-      description,
-      type,
-      amount,
-      section,
-      receiptNumber,
-      createdBy: req.user._id // Diambil dari token login via authMiddleware
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Transaksi keuangan berhasil dicatat',
-      data: transaction
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Gagal mencatat transaksi', error: error.message });
-  }
-};
-
-/**
- * @desc    Mengambil ringkasan saldo, total masuk, dan total keluar beserta list data
- * @route   GET /api/transactions
- * @access  Private (Bisa diakses seluruh Anggota terdaftar untuk transparansi)
- */
+// 1. AMBIL JURNAL KAS + HITUNG SALDO SAH (STRICTLY APPROVED ONLY)
 const getTransactions = async (req, res) => {
   try {
-    // Ambil semua transaksi, populate data penginputnya
-    const transactions = await Transaction.find({})
-      .populate('createdBy', 'fullName role')
-      .sort({ createdAt: -1 });
+    const transactions = await Transaction.find()
+      .sort({ createdAt: -1 })
+      .populate('createdBy', 'fullName role');
 
-    // Hitung kalkulasi keuangan secara akumulatif
+    // KUNCI COY: Ambil HANYA yang statusnya string "Approved" secara presisi
+    const approvedTransactions = await Transaction.find({ status: 'Approved' });
+    
     let totalMasuk = 0;
     let totalKeluar = 0;
 
-    transactions.forEach(t => {
-      if (t.type === 'Masuk') totalMasuk += t.amount;
-      if (t.type === 'Keluar') totalKeluar += t.amount;
+    approvedTransactions.forEach(t => {
+      const nominal = Number(t.amount) || 0; // Paksa konversi ke number murni
+      if (t.type === 'Masuk') {
+        totalMasuk += nominal;
+      } else if (t.type === 'Keluar') {
+        totalKeluar += nominal;
+      }
     });
 
     const totalSaldo = totalMasuk - totalKeluar;
 
     res.json({
+      transactions,
       summary: {
         totalSaldo,
         totalMasuk,
         totalKeluar
-      },
-      transactions
+      }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Gagal mengambil data laporan keuangan', error: error.message });
+    res.status(500).json({ message: 'Gagal memuat jurnal kas', error: error.message });
   }
 };
 
-// ... (kode createTransaction dan getTransactions yang sudah ada) ...
+// 2. BUAT TRANSAKSI LANGSUNG DARI BENDAHARA (AUTOPASS APPROVED)
+const createTransaction = async (req, res) => {
+  const { description, type, amount, section } = req.body;
+  try {
+    const transaction = await Transaction.create({
+      description,
+      type,
+      amount: Number(amount),
+      section: section || 'Umum',
+      status: 'Approved', 
+      createdBy: req.user._id
+    });
+    res.status(201).json(transaction);
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal mencatat transaksi', error: error.message });
+  }
+};
 
-/**
- * @desc    Mengubah data transaksi kas (Edit)
- * @route   PUT /api/transactions/:id
- * @access  Private (Hanya Bendahara)
- */
+// 3. EDIT DATA KAS TRANSAKSI
 const updateTransaction = async (req, res) => {
   const { description, type, amount, section } = req.body;
-
   try {
     const transaction = await Transaction.findById(req.params.id);
+    if (!transaction) return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
 
-    if (!transaction) {
-      return res.status(404).json({ message: 'Data transaksi tidak ditemukan' });
-    }
-
-    // Update field
     transaction.description = description || transaction.description;
     transaction.type = type || transaction.type;
-    transaction.amount = amount || transaction.amount;
+    transaction.amount = amount ? Number(amount) : transaction.amount;
     transaction.section = section || transaction.section;
 
-    const updatedTransaction = await transaction.save();
-
-    res.json({
-      success: true,
-      message: 'Transaksi berhasil diperbarui',
-      data: updatedTransaction
-    });
+    await transaction.save();
+    res.json({ success: true, message: 'Transaksi berhasil diperbarui', data: transaction });
   } catch (error) {
     res.status(500).json({ message: 'Gagal memperbarui transaksi', error: error.message });
   }
 };
 
-/**
- * @desc    Menghapus transaksi kas (Delete)
- * @route   DELETE /api/transactions/:id
- * @access  Private (Hanya Bendahara)
- */
+// 4. HAPUS DATA KAS TRANSAKSI
 const deleteTransaction = async (req, res) => {
   try {
     const transaction = await Transaction.findById(req.params.id);
-
-    if (!transaction) {
-      return res.status(404).json({ message: 'Data transaksi tidak ditemukan' });
-    }
-
-    // Gunakan deleteOne() menggantikan remove() yang sudah deprecated di Mongoose baru
+    if (!transaction) return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
     await transaction.deleteOne();
-
     res.json({ success: true, message: 'Transaksi berhasil dihapus' });
   } catch (error) {
     res.status(500).json({ message: 'Gagal menghapus transaksi', error: error.message });
   }
 };
 
+// 5. OTORISASI VALIDASI KAS PENDING (ACC / TOLAK DARI SEKSI LAIN)
 const validateTransaction = async (req, res) => {
   const { status } = req.body; 
   try {
@@ -137,19 +95,35 @@ const validateTransaction = async (req, res) => {
     if (!transaction) return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
 
     transaction.status = status;
+
+    if (status === 'Approved' && transaction.type === 'Keluar') {
+      const count = await Transaction.countDocuments({ type: 'Keluar', receiptNumber: { $ne: null } });
+      const uniqueId = Date.now().toString().slice(-4);
+      transaction.receiptNumber = `NK-${transaction.section.toUpperCase()}-${uniqueId}-${count + 1}`;
+    }
+
     await transaction.save();
 
-    // Jika terkait dengan Denda Kedisiplinan, update juga status dendanya
     if (transaction.fineRef) {
-      const Fine = require('../models/Discipline').Fine;
+      const { Fine } = require('../models/Discipline');
       const fineUpdateStatus = status === 'Approved' ? 'Lunas' : 'Belum Bayar';
       await Fine.findByIdAndUpdate(transaction.fineRef, { status: fineUpdateStatus });
     }
 
-    res.json({ success: true, message: `Transaksi berhasil di-${status}` });
+    if (transaction.section === 'Infak') {
+      const InfakKurban = require('../models/InfakKurban');
+      const infakStatusUpdate = status === 'Approved' ? 'Lunas' : 'Ditolak';
+      
+      await InfakKurban.findOneAndUpdate(
+        { amount: transaction.amount, type: transaction.type, status: 'Menunggu Konfirmasi' },
+        { status: infakStatusUpdate }
+      );
+    }
+
+    res.json({ success: true, message: `Otorisasi kas berhasil diperbarui menjadi: ${status}` });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Gagal memproses otorisasi kas', error: error.message });
   }
 };
 
-module.exports = { createTransaction, getTransactions, updateTransaction, deleteTransaction, validateTransaction };
+module.exports = { getTransactions, createTransaction, updateTransaction, deleteTransaction, validateTransaction };
