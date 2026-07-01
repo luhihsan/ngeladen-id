@@ -1,44 +1,61 @@
 // backend/src/controllers/transactionController.js
 const Transaction = require('../models/Transaction');
 
-// 1. AMBIL JURNAL KAS + HITUNG SALDO SAH (STRICTLY APPROVED ONLY)
+// 1. AMBIL JURNAL + KALKULASI RINGKASAN TERPUSAT PER SEKSI (APPROVED ONLY)
 const getTransactions = async (req, res) => {
   try {
     const transactions = await Transaction.find()
       .sort({ createdAt: -1 })
       .populate('createdBy', 'fullName role');
 
-    // KUNCI COY: Ambil HANYA yang statusnya string "Approved" secara presisi
     const approvedTransactions = await Transaction.find({ status: 'Approved' });
     
-    let totalMasuk = 0;
-    let totalKeluar = 0;
+    // Inisialisasi Kontainer Akuntansi Terpusat
+    let global = { masuk: 0, keluar: 0, saldo: 0 };
+    let umum = { masuk: 0, keluar: 0, saldo: 0 };
+    let infak = { masuk: 0, keluar: 0, saldo: 0 };
+    let kedisiplinan = { masuk: 0, keluar: 0, saldo: 0 };
 
     approvedTransactions.forEach(t => {
-      const nominal = Number(t.amount) || 0; // Paksa konversi ke number murni
-      if (t.type === 'Masuk') {
-        totalMasuk += nominal;
-      } else if (t.type === 'Keluar') {
-        totalKeluar += nominal;
+      const nominal = Number(t.amount) || 0;
+      
+      // 1. Kalkulasi Global Kontainer
+      if (t.type === 'Masuk') global.masuk += nominal;
+      if (t.type === 'Keluar') global.keluar += nominal;
+
+      // 2. Kalkulasi Klaster per Pos Seksi
+      if (t.section === 'Umum') {
+        if (t.type === 'Masuk') umum.masuk += nominal;
+        if (t.type === 'Keluar') umum.keluar += nominal;
+      } else if (t.section === 'Infak') {
+        if (t.type === 'Masuk') infak.masuk += nominal;
+        if (t.type === 'Keluar') infak.keluar += nominal;
+      } else if (t.section === 'Kedisiplinan') {
+        if (t.type === 'Masuk') kedisiplinan.masuk += nominal;
+        if (t.type === 'Keluar') kedisiplinan.keluar += nominal;
       }
     });
 
-    const totalSaldo = totalMasuk - totalKeluar;
+    global.saldo = global.masuk - global.keluar;
+    umum.saldo = umum.masuk - umum.keluar;
+    infak.saldo = infak.masuk - infak.keluar;
+    kedisiplinan.saldo = kedisiplinan.masuk - kedisiplinan.keluar;
 
     res.json({
       transactions,
       summary: {
-        totalSaldo,
-        totalMasuk,
-        totalKeluar
+        global,
+        umum,
+        infak,
+        kedisiplinan
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Gagal memuat jurnal kas', error: error.message });
+    res.status(500).json({ message: 'Gagal memuat jurnal terpusat', error: error.message });
   }
 };
 
-// 2. BUAT TRANSAKSI LANGSUNG DARI BENDAHARA (AUTOPASS APPROVED)
+// 2. BUAT TRANSAKSI DARI BENDAHARA (AUTO-APPROVED)
 const createTransaction = async (req, res) => {
   const { description, type, amount, section } = req.body;
   try {
@@ -69,7 +86,7 @@ const updateTransaction = async (req, res) => {
     transaction.section = section || transaction.section;
 
     await transaction.save();
-    res.json({ success: true, message: 'Transaksi berhasil diperbarui', data: transaction });
+    res.json({ success: true, message: 'Transaksi diperbarui', data: transaction });
   } catch (error) {
     res.status(500).json({ message: 'Gagal memperbarui transaksi', error: error.message });
   }
@@ -81,13 +98,13 @@ const deleteTransaction = async (req, res) => {
     const transaction = await Transaction.findById(req.params.id);
     if (!transaction) return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
     await transaction.deleteOne();
-    res.json({ success: true, message: 'Transaksi berhasil dihapus' });
+    res.json({ success: true, message: 'Transaksi dihapus' });
   } catch (error) {
     res.status(500).json({ message: 'Gagal menghapus transaksi', error: error.message });
   }
 };
 
-// 5. OTORISASI VALIDASI KAS PENDING (ACC / TOLAK DARI SEKSI LAIN)
+// 5. OTORISASI VALIDASI KAS PENDING (ACC / REJECT)
 const validateTransaction = async (req, res) => {
   const { status } = req.body; 
   try {
@@ -113,14 +130,13 @@ const validateTransaction = async (req, res) => {
     if (transaction.section === 'Infak') {
       const InfakKurban = require('../models/InfakKurban');
       const infakStatusUpdate = status === 'Approved' ? 'Lunas' : 'Ditolak';
-      
       await InfakKurban.findOneAndUpdate(
         { amount: transaction.amount, type: transaction.type, status: 'Menunggu Konfirmasi' },
         { status: infakStatusUpdate }
       );
     }
 
-    res.json({ success: true, message: `Otorisasi kas berhasil diperbarui menjadi: ${status}` });
+    res.json({ success: true, message: `Otorisasi kas diperbarui menjadi: ${status}` });
   } catch (error) {
     res.status(500).json({ message: 'Gagal memproses otorisasi kas', error: error.message });
   }
