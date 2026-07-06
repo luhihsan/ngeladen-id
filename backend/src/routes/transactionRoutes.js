@@ -1,10 +1,10 @@
 // backend/src/routes/transactionRoutes.js
 const express = require('express');
-const { createTransaction, getTransactions, updateTransaction, deleteTransaction } = require('../controllers/transactionController'); // Import fungsi baru
+const { createTransaction, getTransactions, updateTransaction, deleteTransaction } = require('../controllers/transactionController.js'); // Import fungsi baru
 const { protect, authorizeRole } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
-const { validateTransaction } = require('../controllers/transactionController');
+const { validateTransaction } = require('../controllers/transactionController.js');
 
 router.use(protect);
 router.get('/', getTransactions);

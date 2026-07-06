@@ -15,6 +15,7 @@ const agendaRoutes = require('./src/routes/agendaRoutes');
 const disciplineRoutes = require('./src/routes/disciplineRoutes');
 const mandatoryFeeRoutes = require('./src/routes/mandatoryFeeRoutes');
 const infakRoutes = require('./src/routes/infakRoutes');
+const bekakasRoutes = require('./src/routes/bekakasRoutes');
 
 app.use(cors());
 app.use(express.json());
@@ -29,6 +30,7 @@ app.use('/api/agendas', agendaRoutes);
 app.use('/api/discipline', disciplineRoutes);
 app.use('/api/mandatory-fees', mandatoryFeeRoutes);
 app.use('/api/infak', infakRoutes);
+app.use('/api/bekakas', bekakasRoutes);
 
 console.log("Mencoba connect ke:", process.env.MONGO_URI);
 

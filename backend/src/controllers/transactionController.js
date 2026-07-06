@@ -4,26 +4,21 @@ const Transaction = require('../models/Transaction');
 // 1. AMBIL JURNAL + KALKULASI RINGKASAN TERPUSAT PER SEKSI (APPROVED ONLY)
 const getTransactions = async (req, res) => {
   try {
-    const transactions = await Transaction.find()
-      .sort({ createdAt: -1 })
-      .populate('createdBy', 'fullName role');
-
+    const transactions = await Transaction.find().sort({ createdAt: -1 }).populate('createdBy', 'fullName role');
     const approvedTransactions = await Transaction.find({ status: 'Approved' });
     
-    // Inisialisasi Kontainer Akuntansi Terpusat
+    // TAMBAHAN: Daftarkan pos bekakas ke kontainer akuntansi pusat
     let global = { masuk: 0, keluar: 0, saldo: 0 };
     let umum = { masuk: 0, keluar: 0, saldo: 0 };
     let infak = { masuk: 0, keluar: 0, saldo: 0 };
     let kedisiplinan = { masuk: 0, keluar: 0, saldo: 0 };
+    let bekakas = { masuk: 0, keluar: 0, saldo: 0 }; // Pos baru
 
     approvedTransactions.forEach(t => {
       const nominal = Number(t.amount) || 0;
-      
-      // 1. Kalkulasi Global Kontainer
       if (t.type === 'Masuk') global.masuk += nominal;
       if (t.type === 'Keluar') global.keluar += nominal;
 
-      // 2. Kalkulasi Klaster per Pos Seksi
       if (t.section === 'Umum') {
         if (t.type === 'Masuk') umum.masuk += nominal;
         if (t.type === 'Keluar') umum.keluar += nominal;
@@ -33,6 +28,9 @@ const getTransactions = async (req, res) => {
       } else if (t.section === 'Kedisiplinan') {
         if (t.type === 'Masuk') kedisiplinan.masuk += nominal;
         if (t.type === 'Keluar') kedisiplinan.keluar += nominal;
+      } else if (t.section === 'Bekakas') { // Filter pos baru
+        if (t.type === 'Masuk') bekakas.masuk += nominal;
+        if (t.type === 'Keluar') bekakas.keluar += nominal;
       }
     });
 
@@ -40,19 +38,10 @@ const getTransactions = async (req, res) => {
     umum.saldo = umum.masuk - umum.keluar;
     infak.saldo = infak.masuk - infak.keluar;
     kedisiplinan.saldo = kedisiplinan.masuk - kedisiplinan.keluar;
+    bekakas.saldo = bekakas.masuk - bekakas.keluar;
 
-    res.json({
-      transactions,
-      summary: {
-        global,
-        umum,
-        infak,
-        kedisiplinan
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Gagal memuat jurnal terpusat', error: error.message });
-  }
+    res.json({ transactions, summary: { global, umum, infak, kedisiplinan, bekakas } });
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
 // 2. BUAT TRANSAKSI DARI BENDAHARA (AUTO-APPROVED)
@@ -106,13 +95,14 @@ const deleteTransaction = async (req, res) => {
 
 // 5. OTORISASI VALIDASI KAS PENDING (ACC / REJECT)
 const validateTransaction = async (req, res) => {
-  const { status } = req.body; 
+  const { status } = req.body;
   try {
     const transaction = await Transaction.findById(req.params.id);
     if (!transaction) return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
 
     transaction.status = status;
 
+    // Otomatis cetak nomor Nota Keluar Pusat jika disetujui & jenisnya Kredit
     if (status === 'Approved' && transaction.type === 'Keluar') {
       const count = await Transaction.countDocuments({ type: 'Keluar', receiptNumber: { $ne: null } });
       const uniqueId = Date.now().toString().slice(-4);
@@ -121,25 +111,40 @@ const validateTransaction = async (req, res) => {
 
     await transaction.save();
 
+    // SINKRONISASI RELASI 1: Kas Kedisiplinan (Denda)
     if (transaction.fineRef) {
       const { Fine } = require('../models/Discipline');
-      const fineUpdateStatus = status === 'Approved' ? 'Lunas' : 'Belum Bayar';
-      await Fine.findByIdAndUpdate(transaction.fineRef, { status: fineUpdateStatus });
+      await Fine.findByIdAndUpdate(transaction.fineRef, { status: status === 'Approved' ? 'Lunas' : 'Belum Bayar' });
     }
 
+    // SINKRONISASI RELASI 2: Kas Infak & Kurban
     if (transaction.section === 'Infak') {
       const InfakKurban = require('../models/InfakKurban');
-      const infakStatusUpdate = status === 'Approved' ? 'Lunas' : 'Ditolak';
       await InfakKurban.findOneAndUpdate(
         { amount: transaction.amount, type: transaction.type, status: 'Menunggu Konfirmasi' },
-        { status: infakStatusUpdate }
+        { status: status === 'Approved' ? 'Lunas' : 'Ditolak' }
       );
     }
 
-    res.json({ success: true, message: `Otorisasi kas diperbarui menjadi: ${status}` });
-  } catch (error) {
-    res.status(500).json({ message: 'Gagal memproses otorisasi kas', error: error.message });
-  }
+    // TAMBAHAN RELASI 3: SINKRONISASI COK KAS SEKSI BEKAKAS (DENGAN ID REFERENSI MUTLAK)
+    if (transaction.section === 'Bekakas') {
+      const BekakasLog = require('../models/BekakasLog');
+      const logStatusUpdate = status === 'Approved' ? 'Lunas' : 'Ditolak';
+      
+      let receiptNo = null;
+      if (status === 'Approved') {
+        const countLog = await BekakasLog.countDocuments({ receiptNumber: { $ne: null } });
+        receiptNo = `NOTA-BKKS-${Date.now().toString().slice(-4)}-${countLog + 1}`;
+      }
+
+      await BekakasLog.findOneAndUpdate(
+        { amount: transaction.amount, status: 'Menunggu Konfirmasi' },
+        { status: logStatusUpdate, receiptNumber: receiptNo }
+      );
+    }
+
+    res.json({ success: true, message: `Otorisasi berkas kas seksi tuntas diperbarui: ${status}` });
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
 module.exports = { getTransactions, createTransaction, updateTransaction, deleteTransaction, validateTransaction };

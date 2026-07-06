@@ -31,6 +31,7 @@ interface FinanceSummary {
   umum: FinancialMetrics;
   infak: FinancialMetrics;
   kedisiplinan: FinancialMetrics;
+  bekakas: FinancialMetrics; 
 }
 
 export default function KeuanganPage() {
@@ -38,12 +39,12 @@ export default function KeuanganPage() {
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
   
-  // Perubahan Solusi Kontainer Data Agar Mendukung Semua Sub-Seksi Finansial
   const [summary, setSummary] = useState<FinanceSummary>({
     global: { masuk: 0, keluar: 0, saldo: 0 },
     umum: { masuk: 0, keluar: 0, saldo: 0 },
     infak: { masuk: 0, keluar: 0, saldo: 0 },
-    kedisiplinan: { masuk: 0, keluar: 0, saldo: 0 }
+    kedisiplinan: { masuk: 0, keluar: 0, saldo: 0 },
+    bekakas: { masuk: 0, keluar: 0, saldo: 0 }
   });
 
   const [userRole, setUserRole] = useState('');
@@ -82,6 +83,7 @@ export default function KeuanganPage() {
     let uMasuk = 0, uKeluar = 0;
     let iMasuk = 0, iKeluar = 0;
     let kMasuk = 0, kKeluar = 0;
+    let bMasuk = 0, bKeluar = 0;
 
     approvedList.forEach(t => {
       const nominal = Number(t.amount) || 0;
@@ -100,6 +102,9 @@ export default function KeuanganPage() {
       } else if (t.section === 'Kedisiplinan' || t.section === 'Denda') {
         if (t.type === 'Masuk') kMasuk += nominal;
         if (t.type === 'Keluar') kKeluar += nominal;
+      } else if (t.section === 'Bekakas') {
+        if (t.type === 'Masuk') bMasuk += nominal;
+        if (t.type === 'Keluar') bKeluar += nominal;
       }
     });
 
@@ -107,7 +112,8 @@ export default function KeuanganPage() {
       global: { masuk: gMasuk, keluar: gKeluar, saldo: gMasuk - gKeluar },
       umum: { masuk: uMasuk, keluar: uKeluar, saldo: uMasuk - uKeluar },
       infak: { masuk: iMasuk, keluar: iKeluar, saldo: iMasuk - iKeluar },
-      kedisiplinan: { masuk: kMasuk, keluar: kKeluar, saldo: kMasuk - kKeluar }
+      kedisiplinan: { masuk: kMasuk, keluar: kKeluar, saldo: kMasuk - kKeluar },
+      bekakas: { masuk: bMasuk, keluar: bKeluar, saldo: bMasuk - bKeluar }
     });
     
     if (filterMonth) approvedList = approvedList.filter(t => new Date(t.createdAt).getMonth() + 1 === parseInt(filterMonth));
@@ -294,6 +300,16 @@ export default function KeuanganPage() {
             <div className="flex justify-between text-xs text-slate-600 pt-1 border-t border-slate-100">
               <span>Masuk: <span className="text-emerald-600 font-medium">{formatRupiah(summary.kedisiplinan.masuk)}</span></span>
               <span>Keluar: <span className="text-red-600 font-medium">{formatRupiah(summary.kedisiplinan.keluar)}</span></span>
+            </div>
+          </div>
+
+          {/* Kas 4: Bekakas */}
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-1.5">
+            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded text-[10px] font-semibold tracking-wide uppercase">🛠️ KAS SEKSI BEKAKAS</span>
+            <p className="text-xl font-semibold text-slate-800 pt-0.5">{formatRupiah(summary.bekakas?.saldo || 0)}</p>
+            <div className="flex justify-between text-xs text-slate-600 pt-1 border-t border-slate-100">
+              <span>Masuk: <span className="text-emerald-600 font-medium">{formatRupiah(summary.bekakas?.masuk || 0)}</span></span>
+              <span>Keluar: <span className="text-red-600 font-medium">{formatRupiah(summary.bekakas?.keluar || 0)}</span></span>
             </div>
           </div>
         </div>
