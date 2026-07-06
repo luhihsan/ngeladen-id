@@ -1,6 +1,7 @@
 // backend/src/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+
 const spSchema = new mongoose.Schema({
   spNumber: { type: String, required: true },
   reason: { type: String, required: true },
@@ -41,22 +42,28 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['Laki-laki', 'Perempuan'],
     required: true,
-    default: [],
+    // FIX TYPO: Menghapus default: [] agar tidak memicu CastError Array to String
   },
   suratPeringatan: {
     type: [spSchema],
     default: [],
   },
   occupationStatus: {
-  type: String,
-  enum: ['Pelajar/Mahasiswa', 'Bekerja'],
-  default: [],
+    type: String,
+    enum: ['Pelajar/Mahasiswa', 'Bekerja'],
+    required: true,
+    // FIX TYPO: Menghapus default: [] agar tidak memicu CastError Array to String
+  },
+  joinDate: {
+    type: Date,
+    required: true,
+    default: Date.now, // Kunci parameter untuk masa gratis kas wajib 3 bulan pertama
   },
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
-    next();
+    return next();
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
