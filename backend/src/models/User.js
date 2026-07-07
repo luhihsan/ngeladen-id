@@ -27,7 +27,6 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: ['Ketua', 'Wakil Ketua', 'Sekretaris', 'Bendahara', 'Kedisiplinan', 'Infak', 'Bekakas', 'Anggota'],
-    default: 'Anggota',
   },
   status: {
     type: String,
@@ -42,7 +41,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['Laki-laki', 'Perempuan'],
     required: true,
-    // FIX TYPO: Menghapus default: [] agar tidak memicu CastError Array to String
   },
   suratPeringatan: {
     type: [spSchema],
@@ -52,12 +50,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['Pelajar/Mahasiswa', 'Bekerja'],
     required: true,
-    // FIX TYPO: Menghapus default: [] agar tidak memicu CastError Array to String
   },
   joinDate: {
     type: Date,
     required: true,
-    default: Date.now, // Kunci parameter untuk masa gratis kas wajib 3 bulan pertama
+    default: Date.now, 
   },
 }, { timestamps: true });
 
