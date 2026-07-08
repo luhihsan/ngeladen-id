@@ -37,17 +37,31 @@ const addNotes = async (req, res) => {
 // Logika Roulette/Randomizer
 const getRandomHost = async (req, res) => {
   try {
-    // Ambil semua anggota yang statusnya Aktif
-    const users = await User.find({ status: 'Aktif' }).select('fullName');
-    if (users.length === 0) return res.status(404).json({ message: 'Tidak ada anggota aktif' });
-    
-    // Algoritma Randomize
-    const randomIndex = Math.floor(Math.random() * users.length);
-    const selectedHost = users[randomIndex];
-    
-    res.json({ host: selectedHost.fullName });
+    // 1. Ambil seluruh daftar pengguna/warga yang berstatus Aktif
+    const activeUsers = await User.find({ status: 'Aktif' });
+    if (activeUsers.length === 0) {
+      return res.status(400).json({ message: 'Tidak ada anggota aktif di database' });
+    }
+
+    // 2. Ambil daftar nama host unik yang sudah pernah ketempatan rapat sebelumnya
+    const usedHosts = await Meeting.find({ host: { $ne: null, $ne: '' } }).distinct('host');
+
+    // 3. Saring anggota aktif yang namanya BELUM PERNAH ada di daftar usedHosts
+    let eligibleUsers = activeUsers.filter(user => !usedHosts.includes(user.fullName));
+
+    // 4. FALLBACK: Jika semua anggota sudah pernah ketempatan secara rata,
+    //    reset putaran (semua anggota aktif berhak masuk undian roulette lagi)
+    if (eligibleUsers.length === 0) {
+      eligibleUsers = activeUsers;
+    }
+
+    // 5. Pilih satu pemenang secara acak murni dan adil
+    const randomIndex = Math.floor(Math.random() * eligibleUsers.length);
+    const selectedHost = eligibleUsers[randomIndex].fullName;
+
+    res.json({ host: selectedHost });
   } catch (error) {
-    res.status(500).json({ message: 'Gagal mengacak jadwal', error: error.message });
+    res.status(500).json({ message: 'Gagal mengacak undian ketempatan', error: error.message });
   }
 };
 
