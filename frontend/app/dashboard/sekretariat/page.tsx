@@ -1,8 +1,18 @@
 // frontend/app/dashboard/sekretariat/page.tsx
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchAPI } from '@/utils/api';
+import dynamic from 'next/dynamic';
+
+// Import Tiptap secara dinamis dengan mematikan SSR demi stabilitas Turbopack
+const TiptapEditor = dynamic(
+  () => import('./TiptapEditor'),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-[280px] bg-slate-50 animate-pulse rounded-lg border border-slate-200" />
+  }
+);
 
 interface Meeting {
   _id: string;
@@ -18,33 +28,60 @@ interface Meeting {
 
 export default function SekretariatPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [filteredMeetings, setFilteredMeetings] = useState<Meeting[]>([]);
   const [userRole, setUserRole] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- State Modal Buat Jadwal Rapat ---
+  const [filterRoutine, setFilterRoutine] = useState<'Rutin' | 'Insidental'>('Rutin');
+  const [filterTime, setFilterTime] = useState<'Selesai' | 'AkanDatang'>('AkanDatang');
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ title: '', date: '', isRoutine: false, host: '' });
+  const [createForm, setCreateForm] = useState({ title: '', date: '', isRoutine: true, host: '' });
   const [isSubmittingMeeting, setIsSubmittingMeeting] = useState(false);
   const [isRouletteSpinning, setIsRouletteSpinning] = useState(false);
 
-  // --- State Modal Isi Notulensi ---
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [notesText, setNotesText] = useState('');
   const [isSubmittingNotes, setIsSubmittingNotes] = useState(false);
 
-  const editorRef = useRef<HTMLDivElement>(null);
+  // Fungsi pembacaan localStorage yang aman dari crash SSR/Next.js
+  const safeGetUserInfo = () => {
+    if (typeof window === 'undefined') return {};
+    const stored = localStorage.getItem('userInfo');
+    if (!stored || stored === 'undefined' || stored.trim() === '') return {};
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return {};
+    }
+  };
 
   useEffect(() => {
-    const role = JSON.parse(localStorage.getItem('userInfo') || '{}').role;
+    const role = safeGetUserInfo().role;
     setUserRole(role || '');
     loadMeetings();
   }, []);
 
+  useEffect(() => {
+    const today = new Date();
+    let result = [...meetings];
+
+    result = result.filter(m => filterRoutine === 'Rutin' ? m.isRoutine === true : m.isRoutine === false);
+
+    if (filterTime === 'Selesai') {
+      result = result.filter(m => new Date(m.date) <= today);
+    } else {
+      result = result.filter(m => new Date(m.date) > today);
+    }
+
+    setFilteredMeetings(result);
+  }, [meetings, filterRoutine, filterTime]);
+
   const loadMeetings = async () => {
     try {
       const data = await fetchAPI('/meetings', { method: 'GET' });
-      setMeetings(data);
+      setMeetings(data || []);
     } catch (err: any) {
       alert(err.message || 'Gagal memuat jadwal rapat');
     } finally {
@@ -54,19 +91,19 @@ export default function SekretariatPage() {
 
   const handleSpinRoulette = async () => {
     setIsRouletteSpinning(true);
-    setCreateForm(prev => ({ ...prev, host: '🎰 Memutar Undian...' }));
+    setCreateForm(prev => ({ ...prev, host: 'Mengacak undian...' }));
     
     setTimeout(async () => {
       try {
         const res = await fetchAPI('/meetings/random-host', { method: 'GET' });
         setCreateForm(prev => ({ ...prev, host: res.host }));
       } catch (err: any) {
-        alert(err.message || 'Gagal mengacak anggota. Pastikan ada anggota aktif di DB.');
+        alert(err.message || 'Gagal mengacak anggota. Pastikan ada anggota aktif di database.');
         setCreateForm(prev => ({ ...prev, host: '' }));
       } finally {
         setIsRouletteSpinning(false);
       }
-    }, 1500);
+    }, 1200);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -80,7 +117,7 @@ export default function SekretariatPage() {
         body: JSON.stringify(createForm)
       });
       setIsCreateOpen(false);
-      setCreateForm({ title: '', date: '', isRoutine: false, host: '' });
+      setCreateForm({ title: '', date: '', isRoutine: true, host: '' });
       loadMeetings();
     } catch (err: any) {
       alert(err.message || 'Gagal menyimpan jadwal rapat');
@@ -95,24 +132,15 @@ export default function SekretariatPage() {
     setIsNotesOpen(true);
   };
 
-  const execEditorCommand = (command: string, value: string = '') => {
-    document.execCommand(command, false, value);
-    if (editorRef.current) {
-      setNotesText(editorRef.current.innerHTML);
-    }
-  };
-
   const handleNotesSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMeeting) return;
-
-    const htmlContent = editorRef.current ? editorRef.current.innerHTML : notesText;
 
     setIsSubmittingNotes(true);
     try {
       await fetchAPI(`/meetings/${selectedMeeting._id}/notes`, {
         method: 'PUT',
-        body: JSON.stringify({ notes: htmlContent })
+        body: JSON.stringify({ notes: notesText })
       });
       setIsNotesOpen(false);
       loadMeetings();
@@ -134,146 +162,234 @@ export default function SekretariatPage() {
     }
   };
 
-  if (isLoading) return <div className="p-4 text-center text-slate-500 animate-pulse">Memuat modul sekretariat...</div>;
+  if (isLoading) return <div className="p-4 text-center text-slate-600 animate-pulse font-normal">Memuat modul sekretariat...</div>;
 
-  // REVISI LOCK AKSES: Hanya Sekretaris yang bisa melakukan aksi penulisan/modifikasi
   const isAuthorized = userRole === 'Sekretaris';
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
+    /* PERBAIKAN UTAMA: Menggunakan w-full dan padding horizontal normal agar dashboard melar penuh kiri-kanan */
+    <div className="space-y-6 animate-in fade-in duration-500 text-slate-800 font-normal w-full px-4 md:px-8 py-2">
+      
+      {/* Custom Styling untuk Menjamin Kompatibilitas Output Class Tiptap */}
+      <style>{`
+        .ProseMirror {
+          min-height: 260px;
+          max-height: 420px;
+          overflow-y: auto;
+          outline: none;
+          padding: 1rem;
+          font-size: 0.875rem;
+          line-height: 1.625;
+        }
+        .ProseMirror p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          float: left;
+          color: #94a3b8;
+          pointer-events: none;
+          height: 0;
+        }
+        .ProseMirror ul {
+          list-style-type: disc;
+          padding-left: 1.5rem;
+          margin-bottom: 0.5rem;
+        }
+        .ProseMirror ol {
+          list-style-type: decimal;
+          padding-left: 1.5rem;
+          margin-bottom: 0.5rem;
+        }
+      `}</style>
+
+      {/* Header Halaman */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Sekretariat & Rapat Rutin</h1>
-          <p className="text-sm text-slate-500">Penjadwalan rapat pemuda, sistem roulette ketempatan, dan arsip notulensi digital</p>
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Sekretariat & Pertemuan Organisasi</h1>
+          <p className="text-sm text-slate-600 mt-0.5">Penjadwalan rapat pemuda, rotasi ketempatan adil, dan pengarsipan risalah notulensi digital.</p>
         </div>
         {isAuthorized && (
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="w-full sm:w-auto px-5 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all transform hover:-translate-y-0.5"
+            className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium shadow-xs hover:bg-indigo-700 transition-all cursor-pointer"
           >
-            + Jadwalkan Rapat
+            + Jadwalkan Rapat Baru
           </button>
         )}
       </div>
 
-      {/* Agenda Rapat List */}
+      {/* Filter Antarmuka */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-5 items-center shadow-xs">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Klasifikasi:</span>
+          <div className="flex gap-2 text-xs">
+            <button 
+              type="button" 
+              onClick={() => setFilterRoutine('Rutin')} 
+              className={`px-4 py-2 rounded-lg font-medium transition-all cursor-pointer ${
+                filterRoutine === 'Rutin' 
+                  ? 'bg-indigo-50 text-indigo-600 border border-indigo-500 shadow-2xs font-semibold' 
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+            >
+              Rapat Rutin
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setFilterRoutine('Insidental')} 
+              className={`px-4 py-2 rounded-lg font-medium transition-all cursor-pointer ${
+                filterRoutine === 'Insidental' 
+                  ? 'bg-indigo-50 text-indigo-600 border border-indigo-500 shadow-2xs font-semibold' 
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+            >
+              Insidental
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Masa Agenda:</span>
+          <div className="flex gap-2 text-xs">
+            <button 
+              type="button" 
+              onClick={() => setFilterTime('AkanDatang')} 
+              className={`px-4 py-2 rounded-lg font-medium transition-all cursor-pointer ${
+                filterTime === 'AkanDatang' 
+                  ? 'bg-indigo-50 text-indigo-600 border border-indigo-500 shadow-2xs font-semibold' 
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+            >
+              Akan Datang
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setFilterTime('Selesai')} 
+              className={`px-4 py-2 rounded-lg font-medium transition-all cursor-pointer ${
+                filterTime === 'Selesai' 
+                  ? 'bg-indigo-50 text-indigo-600 border border-indigo-500 shadow-2xs font-semibold' 
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+            >
+              Sudah Selesai
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Daftar Kartu Pertemuan Rapat */}
       <div className="space-y-4">
-        <h3 className="font-bold text-slate-900 text-lg">Agenda Rapat Organisasi</h3>
-        {meetings.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center border border-slate-200 text-slate-500">Belum ada agenda rapat yang dibuat.</div>
-        ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {meetings.map((meeting) => (
-              <div key={meeting._id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {filteredMeetings.length === 0 ? (
+            <div className="col-span-full bg-white rounded-xl p-8 text-center border border-slate-200 text-slate-500 font-medium text-sm">
+              Tidak ada agenda pertemuan rapat yang sesuai dengan kriteria filter saat ini.
+            </div>
+          ) : (
+            filteredMeetings.map((meeting) => (
+              <div key={meeting._id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between gap-4 animate-in fade-in duration-200">
                 <div>
-                  <div className="flex justify-between items-start gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold ${
-                      meeting.isRoutine ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
-                    }`}>
-                      {meeting.isRoutine ? 'Rapat Rutin' : 'Rapat Insidental'}
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold border uppercase tracking-wider bg-slate-50 text-slate-700 border-slate-200">
+                      {meeting.isRoutine ? 'Rapat Rutin' : 'Insidental'}
                     </span>
-                    <span className="text-xs text-slate-400 font-medium">
+                    <span className="text-xs font-mono text-slate-500">
                       {new Date(meeting.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </span>
                   </div>
 
-                  <h4 className="font-extrabold text-slate-900 text-lg mt-3 leading-tight">{meeting.title}</h4>
+                  <h4 className="font-semibold text-slate-900 text-base mt-3 tracking-tight leading-tight">{meeting.title}</h4>
                   
                   {meeting.host && (
-                    <p className="text-sm text-slate-600 mt-1 flex items-center gap-1.5 font-medium">
-                      <span>📍 Ketempatan:</span> <strong className="text-slate-800">{meeting.host}</strong>
+                    <p className="text-xs text-slate-600 mt-1.5 font-normal">
+                      📍 Lokasi Ketempatan: <span className="text-slate-900 font-medium">{meeting.host}</span>
                     </p>
                   )}
 
-                  <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Hasil Notulensi Rapat:</p>
+                  <div className="mt-3 p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Hasil Pembahasan Notulensi:</p>
                     {meeting.notes ? (
                       <div 
-                        className="text-sm text-slate-700 font-medium prose max-w-none break-words"
+                        className="text-sm text-slate-700 font-normal prose max-w-none break-words leading-relaxed text-left"
                         dangerouslySetInnerHTML={{ __html: meeting.notes }}
                       />
                     ) : (
-                      <p className="text-sm text-slate-400 italic">Belum ada notulensi yang diinput oleh sekretaris.</p>
+                      <p className="text-xs text-slate-400 italic font-normal">Belum ada dokumen notulensi yang diinput oleh sekretaris pemuda.</p>
                     )}
                   </div>
                 </div>
 
                 {isAuthorized && (
-                  <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+                  <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
                     <button
                       onClick={() => handleDeleteMeeting(meeting._id)}
-                      className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs rounded-xl transition-colors"
+                      className="px-3 py-1.5 bg-slate-50 text-red-600 border border-slate-200 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors cursor-pointer"
                     >
                       Hapus Rapat
                     </button>
                     <button
                       onClick={() => handleOpenNotes(meeting)}
-                      className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 font-bold text-xs rounded-xl transition-colors border border-transparent hover:border-indigo-100"
+                      className="px-3 py-1.5 bg-slate-50 text-indigo-700 border border-slate-200 hover:bg-indigo-50/50 rounded-lg text-xs font-medium transition-colors cursor-pointer"
                     >
                       {meeting.notes ? 'Edit Notulensi' : 'Isi Notulensi'}
                     </button>
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </div>
 
-      {/* --- MODAL BUAT JADWAL --- */}
+      {/* --- MODAL BUAT AGENDA JADWAL --- */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="p-6 border-b border-slate-100 bg-slate-50">
-              <h3 className="text-lg font-bold text-slate-900">Buat Agenda Rapat</h3>
-              <p className="text-xs text-slate-500 mt-1">Atur tanggal dan pilih petugas/tuan rumah rapat</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-lg overflow-hidden">
+            <div className="p-5 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-lg font-semibold text-slate-800">Buat Agenda Pertemuan Baru</h3>
             </div>
-            <form onSubmit={handleCreateSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleCreateSubmit} className="p-5 space-y-4 text-sm font-normal">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Nama / Agenda Rapat</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Nama / Pembahasan Rapat</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Rapat Pleno Kerja Bakti"
-                  className="w-full px-4 py-2.5 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl outline-none font-medium"
+                  placeholder="Contoh: Rapat Pleno Sinoman Pernikahan"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none font-normal"
                   value={createForm.title}
                   onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Tanggal Rapat</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Tanggal Rapat</label>
                   <input
                     type="date"
                     required
-                    className="w-full px-4 py-2.5 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl outline-none font-medium"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none"
                     value={createForm.date}
                     onChange={(e) => setCreateForm({ ...createForm, date: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Sifat Agenda</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Sifat Klasifikasi</label>
                   <select
-                    className="w-full px-4 py-2.5 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl outline-none font-medium"
+                    className="w-full px-2 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none font-normal"
                     value={createForm.isRoutine ? 'true' : 'false'}
                     onChange={(e) => setCreateForm({ ...createForm, isRoutine: e.target.value === 'true' })}
                   >
+                    <option value="true">Rapat Rutin Bulanan</option>
                     <option value="false">Insidental (Kondisional)</option>
-                    <option value="true">Rapat Rutin</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Petugas / Tempat Rapat (Host)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Petugas Tuan Rumah (Host Ketempatan)</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Ketik nama atau gunakan roulette 🎰"
+                    placeholder="Nama warga atau gunakan roulette"
                     disabled={isRouletteSpinning}
-                    className="flex-1 px-4 py-2.5 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl outline-none font-medium text-sm disabled:opacity-60"
+                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none disabled:bg-slate-50"
                     value={createForm.host}
                     onChange={(e) => setCreateForm({ ...createForm, host: e.target.value })}
                   />
@@ -281,19 +397,19 @@ export default function SekretariatPage() {
                     type="button"
                     onClick={handleSpinRoulette}
                     disabled={isRouletteSpinning}
-                    className="px-4 bg-gradient-to-tr from-amber-500 to-orange-400 text-white font-bold rounded-xl text-sm shadow-md hover:from-amber-600 hover:to-orange-500 disabled:opacity-50 transition-all flex items-center justify-center"
+                    className="px-4 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-900 disabled:opacity-50 transition-colors flex items-center justify-center shrink-0 cursor-pointer"
                   >
-                    🎰 Acak
+                    {isRouletteSpinning ? 'Mengacak...' : 'Undi Roulette'}
                   </button>
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50">
+              <div className="flex gap-3 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setIsCreateOpen(false)} className="flex-1 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
                   Batal
                 </button>
-                <button type="submit" disabled={isSubmittingMeeting || isRouletteSpinning || !createForm.title} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700">
-                  {isSubmittingMeeting ? 'Menyimpan...' : 'Simpan Jadwal'}
+                <button type="submit" disabled={isSubmittingMeeting || isRouletteSpinning || !createForm.title} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors cursor-pointer">
+                  {isSubmittingMeeting ? 'Menyimpan...' : 'Simpan Agenda'}
                 </button>
               </div>
             </form>
@@ -303,54 +419,31 @@ export default function SekretariatPage() {
 
       {/* --- MODAL NOTULENSI --- */}
       {isNotesOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 bg-slate-50">
-              <h3 className="text-lg font-bold text-slate-900">Notulensi Hasil Rapat</h3>
-              <p className="text-xs text-slate-500 mt-1">Rapat: <span className="font-semibold text-slate-800">{selectedMeeting?.title}</span></p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl w-full max-w-2xl shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-5 border-b border-slate-100 bg-slate-50 shrink-0">
+              <h3 className="text-lg font-semibold text-slate-800">Notulensi Hasil Pertemuan Rapat</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Agenda: <span className="font-medium text-slate-700">{selectedMeeting?.title}</span></p>
             </div>
             
-            <form onSubmit={handleNotesSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Catatan Hasil Pembahasan</label>
+            <form onSubmit={handleNotesSubmit} className="p-5 flex-1 overflow-y-auto flex flex-col justify-between items-stretch space-y-4">
+              <div className="space-y-2 flex-1 flex flex-col items-stretch">
+                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider shrink-0">Catatan Hasil Pembahasan</label>
                 
-                <div className="bg-slate-100 border border-slate-200 border-b-0 rounded-t-xl p-2 flex flex-wrap gap-1 items-center">
-                  <button type="button" onClick={() => execEditorCommand('bold')} className="p-1.5 hover:bg-slate-200 text-slate-700 rounded font-bold text-sm" title="Tebal (Bold)">B</button>
-                  <button type="button" onClick={() => execEditorCommand('italic')} className="p-1.5 hover:bg-slate-200 text-slate-700 rounded italic text-sm" title="Miring (Italic)">I</button>
-                  <button type="button" onClick={() => execEditorCommand('underline')} className="p-1.5 hover:bg-slate-200 text-slate-700 rounded underline text-sm" title="Garis Bawah (Underline)">U</button>
-                  <div className="h-4 w-[1px] bg-slate-300 mx-1" />
-                  <button type="button" onClick={() => execEditorCommand('justifyLeft')} className="p-1.5 hover:bg-slate-200 text-slate-700 rounded" title="Rata Kiri">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h10M4 18h14" /></svg>
-                  </button>
-                  <button type="button" onClick={() => execEditorCommand('justifyCenter')} className="p-1.5 hover:bg-slate-200 text-slate-700 rounded" title="Rata Tengah">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h12M4 18h16" /></svg>
-                  </button>
-                  <button type="button" onClick={() => execEditorCommand('justifyRight')} className="p-1.5 hover:bg-slate-200 text-slate-700 rounded" title="Rata Kanan">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M10 12h10M6 18h14" /></svg>
-                  </button>
-                  <button type="button" onClick={() => execEditorCommand('justifyFull')} className="p-1.5 hover:bg-slate-200 text-slate-700 rounded" title="Rata Kanan Kiri">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                  </button>
-                  <div className="h-4 w-[1px] bg-slate-300 mx-1" />
-                  <button type="button" onClick={() => execEditorCommand('insertUnorderedList')} className="p-1.5 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs" title="Bullet List">• List</button>
+                <div className="flex-1 flex flex-col items-stretch min-h-[280px]">
+                  <TiptapEditor 
+                    value={notesText}
+                    onChange={setNotesText}
+                  />
                 </div>
-
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  className="w-full min-h-[180px] max-h-[300px] overflow-auto px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-b-xl outline-none font-medium text-sm focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 prose"
-                  dangerouslySetInnerHTML={{ __html: notesText }}
-                  onBlur={(e) => setNotesText(e.currentTarget.innerHTML)}
-                />
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsNotesOpen(false)} className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50">
+              <div className="flex gap-3 pt-3 border-t border-slate-100 justify-end shrink-0">
+                <button type="button" onClick={() => setIsNotesOpen(false)} className="px-5 py-2 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded-lg text-xs font-medium transition-colors border-0 cursor-pointer">
                   Batal
                 </button>
-                <button type="submit" disabled={isSubmittingNotes} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700">
-                  {isSubmittingNotes ? 'Menyimpan...' : 'Simpan Notulensi'}
+                <button type="submit" disabled={isSubmittingNotes} className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 border-0 cursor-pointer">
+                  {isSubmittingNotes ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>
             </form>
