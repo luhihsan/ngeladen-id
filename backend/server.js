@@ -18,6 +18,7 @@ const infakRoutes = require('./src/routes/infakRoutes');
 const bekakasRoutes = require('./src/routes/bekakasRoutes');
 const kasWajibRoutes = require('./src/routes/kasWajibRoutes');
 const meetingAttendanceRoutes = require('./src/routes/meetingAttendanceRoutes');
+const activityRoutes = require('./src/routes/activityRoutes');
 
 app.use(cors());
 app.use(express.json());
@@ -35,6 +36,7 @@ app.use('/api/infak', infakRoutes);
 app.use('/api/bekakas', bekakasRoutes);
 app.use('/api/kas-wajib', kasWajibRoutes);
 app.use('/api/meeting-attendance', meetingAttendanceRoutes);
+app.use('/api/activities', activityRoutes);
 
 console.log("Mencoba connect ke:", process.env.MONGO_URI);
 
