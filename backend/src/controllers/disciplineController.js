@@ -23,6 +23,30 @@ const createGroup = async (req, res) => {
   }
 };
 
+const updateGroup = async (req, res) => {
+  try {
+    const { name, members } = req.body;
+    const group = await GroupLegi.findById(req.params.id);
+    
+    if (!group) {
+      return res.status(404).json({ message: 'Kelompok tidak ditemukan' });
+    }
+
+    if (name) group.name = name;
+    if (members) group.members = members; 
+
+    await group.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Anggota kelompok berhasil diperbarui/di-mutasi', 
+      data: group 
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal memperbarui kelompok', error: error.message });
+  }
+};
+
 // ================= DENDA & ABSENSI =================
 const getFines = async (req, res) => {
   try {
@@ -145,6 +169,6 @@ const getAttendanceData = async (req, res) => {
 };
 
 module.exports = { 
-  getGroups, createGroup, getFines, createFine, payFine,
+  getGroups, createGroup, updateGroup, getFines, createFine, payFine,
   getKumpulanLegi, createKumpulanLegi, saveAttendance, getAttendanceData 
 };

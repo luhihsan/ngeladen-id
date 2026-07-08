@@ -1,7 +1,7 @@
 // backend/src/routes/disciplineRoutes.js
 const express = require('express');
 const { 
-  getGroups, createGroup, getFines, createFine, payFine,
+  getGroups, createGroup, updateGroup, getFines, createFine, payFine,
   getKumpulanLegi, createKumpulanLegi, saveAttendance, getAttendanceData 
 } = require('../controllers/disciplineController');
 const { protect, authorizeRole } = require('../middlewares/authMiddleware');
@@ -19,5 +19,6 @@ router.post('/fines', authorizeRole('Kedisiplinan'), createFine);
 router.post('/kumpulan', authorizeRole('Kedisiplinan'), createKumpulanLegi);
 router.post('/attendance', authorizeRole('Kedisiplinan'), saveAttendance);
 router.put('/fines/:id/pay', authorizeRole('Kedisiplinan'), payFine);
+router.put('/groups/:id', protect, authorizeRole('Kedisiplinan'), updateGroup);
 
 module.exports = router;
