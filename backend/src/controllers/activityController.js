@@ -1,53 +1,66 @@
 // backend/src/controllers/activityController.js
 const Meeting = require('../models/Meeting');
-const { KumpulanLegi } = require('../models/Discipline'); // Berdasarkan struktur repo lu[cite: 2]
-const Agenda = require('../models/Agenda'); // Diimpor dinamis dari temuan internal[cite: 2]
+const { GroupLegi, KumpulanLegi } = require('../models/Discipline');
+const Agenda = require('../models/Agenda');
 
 const getAllActivities = async (req, res) => {
   try {
-    const userGender = req.user.gender; // Ambil gender untuk validasi khusus laden pria[cite: 2]
+    const userId = req.user._id;
+    const userRole = req.user.role;
+    const userGender = req.user.gender;
 
-    // Jalankan query secara paralel agar performa server kencang
+    // 1. Ambil data kelompok keanggotaan user yang sedang login
+    const userGroup = await GroupLegi.findOne({ members: userId }).lean();
+
+    // 2. Ambil seluruh data master secara paralel
     const [meetings, kumpulanLegi, agendas] = await Promise.all([
       Meeting.find().lean(),
-      KumpulanLegi.find().populate('assignedGroup', 'name').lean(), // Populasikan nama kelompok legi[cite: 2]
+      KumpulanLegi.find().populate('assignedGroup', 'name').lean(),
       Agenda.find().lean()
     ]);
 
-    // 1. Map data Rapat (Dari Sekretaris)
+    // 3. Mapping data Rapat dari Sekretaris (Rapat Rutin & Rapat Insidental)
     const mappedMeetings = meetings.map(m => ({
       id: m._id,
       title: m.title,
       date: m.date,
-      category: m.isRoutine ? 'Rapat Rutin' : 'Rapat Insidental',
+      category: m.isRoutine ? 'Rapat Rutin' : 'Rapat Insidental', // KATEGORI RESMI
       host: m.host || 'Ditentukan kemudian',
-      description: 'Diharapkan hadir membawa buku iuran kas wajib warga.',
+      description: m.notes ? m.notes.replace(/<[^>]*>/g, '').slice(0, 150) : 'Agenda pertemuan resmi organisasi.',
       allowedGender: 'Semua'
     }));
 
-    // 2. Map data Kumpulan Minggu Legi (Dari Seksi Kedisiplinan)[cite: 2]
-    const mappedLegi = kumpulanLegi.map(kl => ({
+    // 4. Mapping data Kumpulan Minggu Legi dari Seksi Kedisiplinan
+    const isManagement = ['Ketua', 'Wakil Ketua', 'Kedisiplinan', 'Sekretaris', 'Bendahara'].includes(userRole);
+    
+    // Filter privasi: Anggota biasa hanya melihat jadwal kelompoknya sendiri
+    const filteredLegi = kumpulanLegi.filter(kl => {
+      if (isManagement) return true;
+      return userGroup && kl.assignedGroup && kl.assignedGroup._id.toString() === userGroup._id.toString();
+    });
+
+    const mappedLegi = filteredLegi.map(kl => ({
       id: kl._id,
       title: `Kumpulan Minggu Legi: ${kl.assignedGroup?.name || 'Semua Kelompok'}`,
       date: kl.date,
-      category: 'Minggu Legi',
+      category: 'Kumpulan Minggu Legi', // KATEGORI RESMI
       host: kl.location || 'Balai RT / Tempat Petugas',
-      description: `Jadwal giliran laden wajib ronda srawung pemuda kampung.`,
-      allowedGender: 'Laki-laki' // Aturan internal: Laden minggu legi dikhususkan pria
+      description: '', 
+      allowedGender: 'Laki-laki'
     }));
 
-    // 3. Map data Agenda Tambahan Non-Rutin (Dari Ketua)[cite: 2]
+    // 5. Mapping data Agenda dari Ketua (Agenda Kemasyarakatan)
     const mappedAgendas = agendas.map(a => ({
       id: a._id,
       title: a.title,
       date: a.date,
-      category: 'Agenda Ketua',
-      host: a.location || 'Kondisional Lapangan',
-      description: a.description || 'Kegiatan gotong royong non-rutin pemuda RT.',
+      category: 'Agenda Kemasyarakatan', // KATEGORI RESMI
+      host: a.location || 'Lokasi Kondisional Lapangan',
+      description: a.description || 'Kegiatan kemasyarakatan dan gotong royong warga.',
       allowedGender: 'Semua'
     }));
 
-    // Satukan seluruh array dan urutkan berdasarkan tanggal terdekat (Chronological Sorting)
+    // Satukan semua sumber agenda dan urutkan secara kronologis berdasarkan tanggal terdekat
     const unifiedTimeline = [...mappedMeetings, ...mappedLegi, ...mappedAgendas].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
@@ -58,7 +71,7 @@ const getAllActivities = async (req, res) => {
       activities: unifiedTimeline
     });
   } catch (error) {
-    res.status(500).json({ message: 'Gagal merangkum linimasa kegiatan', error: error.message });
+    res.status(500).json({ message: 'Gagal merangkum data linimasa kegiatan', error: error.message });
   }
 };
 
