@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from 'react';
 import { fetchAPI } from '@/utils/api';
-import Link from 'next/link'; 
 
 interface Meeting {
   _id: string;
@@ -34,7 +33,6 @@ interface UserSession {
   status: string;
 }
 
-// --- INTERFACE BARU UNTUK RINCIAN DATA ANGGOTA BIASA ---
 interface SP {
   _id: string;
   spNumber: string;
@@ -84,11 +82,11 @@ export default function DashboardPage() {
   const [totalAnggota, setTotalAnggota] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // States Khusus Anggota Biasa
+  // States Komponen Rapor Data Anggota
   const [personalAlerts, setPersonalAlerts] = useState<PersonalAlerts | null>(null);
   const [personalRecords, setPersonalRecords] = useState<PersonalRecords | null>(null);
 
-  // States Form Aspirasi
+  // States Formulir Aspirasi Kotak Saran
   const [suggestion, setSuggestion] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -111,7 +109,7 @@ export default function DashboardPage() {
 
   const loadDashboardData = async (role: string) => {
     try {
-      // API ditarik paralel dengan pengaman .catch agar dashboard tidak crash total jika satu API gagal
+      // Pemanggilan paralel aman dibungkus catch individual agar antarmuka tidak mati total
       const [meetingRes, financeRes, recordsRes] = await Promise.all([
         fetchAPI('/meetings', { method: 'GET' }).catch(() => []),
         fetchAPI('/transactions', { method: 'GET' }).catch(() => ({})),
@@ -124,15 +122,18 @@ export default function DashboardPage() {
         setFinanceSummary(financeRes.summary);
       }
 
+      // Sinkronisasi data tanpa merusak payload token di localStorage
       if (recordsRes && recordsRes.success) {
-        // 1. Sinkronisasi Data Profil (Status Aktif/Pasif)
-        if (recordsRes.profile) {
-            const updatedUser = { ...user, status: recordsRes.profile.status };
-            setUser(updatedUser as UserSession);
-            localStorage.setItem('userInfo', JSON.stringify(updatedUser)); 
+        const latestStorage = localStorage.getItem('userInfo');
+        if (latestStorage && recordsRes.profile) {
+          const currentSession = JSON.parse(latestStorage);
+          
+          // Gabungkan status terbaru tanpa melibas fullName, role, dan token asli
+          const updatedUser = { ...currentSession, status: recordsRes.profile.status };
+          setUser(updatedUser as UserSession);
+          localStorage.setItem('userInfo', JSON.stringify(updatedUser)); 
         }
 
-        // 2. Kalkulasi notifikasi alert pribadi
         const unpaidFinesList = recordsRes.fines || [];
         const unpaidKasList = recordsRes.mandatoryFees || [];
 
@@ -162,7 +163,7 @@ export default function DashboardPage() {
         setTotalAnggota(usersRes.length);
       }
     } catch (err: any) {
-      console.error('Gagal memuat dashboard. Periksa koneksi backend.');
+      console.error('Gagal memuat sinkronisasi komponen dasbor internal.');
     } finally {
       setIsLoading(false);
     }
@@ -206,33 +207,32 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 text-slate-800 font-normal">
       
-      {/* BANNER UTAMA: Greeting Personal */}
+      {/* BANNER UTAMA: Greeting Personal & Badge Sinkron Terkunci */}
       <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-gradient-to-br from-indigo-100 to-cyan-50 rounded-full blur-2xl opacity-70 pointer-events-none"></div>
-        
         <div className="relative z-10 flex flex-col gap-3">
-          {/* REVISI UI: Flex Wrap agar Badge Sejajar Rapi dengan Nama */}
+          
+          {/* Baris Flexbox Fleksibel Pengunci Posisi Judul Nama & Badge */}
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
               Selamat datang, <span className="text-indigo-600">{user?.fullName}</span>!
             </h1>
-            
-            <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border uppercase tracking-wide ${
+            <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border uppercase tracking-wide shrink-0 ${
               user?.status === 'Aktif' 
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                 : 'bg-rose-50 text-rose-700 border-rose-200'
             }`}>
-              {user?.status || 'Memuat...'}
+              {user?.status || 'Aktif'}
             </span>
           </div>
           
           <p className="text-sm text-slate-600">
-            Membuka panel kontrol utama <span className="text-slate-800 font-medium uppercase">{user?.role}</span> Ngeladen.id.
+            Membuka dashboard sebagai <span className="text-slate-800 font-medium uppercase">{user?.role}</span> Pancatama dalam sistem Ngeladen.id.
           </p>
         </div>
       </div>
 
-      {/* BANNER ALERT MENDESAK */}
+      {/* BANNER ALERT TANGGUNGAN MENDESAK */}
       {hasAlerts && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-in slide-in-from-top-2">
           <div>
@@ -251,7 +251,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* TAMPILAN KARTU STATISTIK */}
+      {/* PANEL UTAMA KARTU REKAPITULASI DATA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
           <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Kas Utama Organisasi Pemuda</p>
@@ -284,7 +284,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* --- BLOK RINCIAN TANGGUNGAN & SP TAMPIL LANGSUNG DI DASHBOARD --- */}
+      {/* AREA GRID RINCIAN TANGGUNGAN INTEGRASI PRIBADI */}
       {isAnggotaBiasa && hasAlerts && personalRecords && (
         <div id="rincian-tanggungan" className="bg-white border border-rose-200 rounded-xl shadow-sm overflow-hidden w-full scroll-mt-24">
           <div className="p-4 border-b border-rose-100 bg-rose-50/40">
@@ -292,7 +292,6 @@ export default function DashboardPage() {
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Rincian Surat Peringatan */}
             {personalRecords.suratPeringatan.length > 0 && (
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Dokumen Surat Peringatan</h4>
@@ -315,7 +314,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Rincian Tagihan Denda & Kas */}
             {(personalRecords.fines.length > 0 || personalRecords.mandatoryFees.length > 0) && (
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Kewajiban Belum Dibayar</h4>
@@ -346,10 +344,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* GRID UTAMA BAWAH (Timeline & Aspirasi) */}
+      {/* CONTAINER STRUKTUR BOTTOM GRID LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* KOLOM KIRI: Linimasa Rapat Terupdate */}
+        {/* KOLOM KIRI BARIS AGENDA RAPAT TERUPDATE */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-semibold text-slate-800 text-base">
@@ -411,7 +409,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* KOLOM KANAN: Kotak Pengiriman Aspirasi Anggota */}
+        {/* KOLOM KANAN KOTAK SUARA ASPIRASI WARGA PEMUDA */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-fit">
           <div className="p-5 border-b border-slate-100 bg-slate-50">
             <h3 className="font-semibold text-slate-800 text-sm sm:text-base">
@@ -464,4 +462,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-} 
+}
