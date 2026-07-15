@@ -3,7 +3,7 @@ const User = require('../models/User');
 const { Fine } = require('../models/Discipline'); 
 const MandatoryFee = require('../models/MandatoryFee'); 
 
-// --- FUNGSI LAMA LU (TETAP DIPERTAHANKAN 100%) ---
+// --- FUNGSI MANAJEMEN ANGGOTA ---
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.find({}).select('-password').sort({ fullName: 1 });
@@ -39,31 +39,94 @@ const updateUserStatus = async (req, res) => {
   }
 };
 
+// FIX BUG 500: Menggunakan findByIdAndUpdate untuk bypass skema validasi global
 const issueSP = async (req, res) => {
   const { spNumber, reason } = req.body;
   const fileUrl = req.file ? `/uploads/sp/${req.file.filename}` : null;
+  
   try {
-    const newSP = { spNumber, reason, fileUrl, createdAt: new Date() };
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      { $push: { suratPeringatan: newSP } },
-      { new: true }
-    );
-    if (!updatedUser) {
+    const user = await User.findById(req.params.id);
+    if (!user) {
       return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
     }
+
+    // Amankan data array jika sewaktu-waktu data model lama belum terinisialisasi
+    const currentSPs = user.suratPeringatan || [];
+
+    // 1. Validasi Batas Jatah SP
+    if (user.status === 'Keluar' || currentSPs.length >= 3) {
+      return res.status(400).json({ message: 'Aksi ditolak. Anggota ini sudah mencapai batas maksimal 3x SP dan statusnya sudah dinonaktifkan (Keluar).' });
+    }
+
+    // 2. Susun Data SP Baru ke dalam Array
+    const newSP = { spNumber, reason, fileUrl, createdAt: new Date() };
+    const updatedSPs = [...currentSPs, newSP];
+
+    // Buat objek payload penampung perubahan spesifik
+    const updatePayload = { suratPeringatan: updatedSPs };
+    let responseMessage = 'Surat Peringatan beserta dokumen berhasil diterbitkan';
+
+    // 3. LOGIKA ATURAN KETAT: Jika mencapai SP ke-3, otomatis kunci status ke Keluar
+    if (updatedSPs.length >= 3) {
+      updatePayload.status = 'Keluar';
+      updatePayload.statusReason = `Diberhentikan otomatis oleh sistem karena akumulasi 3x Surat Peringatan (SP3). Surat terakhir: ${spNumber} dengan alasan: ${reason}`;
+      responseMessage = 'Surat Peringatan ke-3 (SP3) resmi diterbitkan. Anggota ini telah otomatis dinonaktifkan dan dikeluarkan dari organisasi oleh sistem.';
+    }
+
+    // 4. Eksekusi menggunakan findByIdAndUpdate agar kebal dari eror validasi field eksternal
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: updatePayload },
+      { new: true, runValidators: false } // runValidators: false mengamankan skrip dari bentrokan field lama
+    );
+
     res.status(201).json({ 
-      message: 'Surat Peringatan beserta dokumen berhasil diterbitkan', 
-      suratPeringatan: updatedUser.suratPeringatan 
+      success: true,
+      message: responseMessage, 
+      suratPeringatan: updatedUser.suratPeringatan,
+      status: updatedUser.status
     });
   } catch (error) {
     res.status(500).json({ message: 'Gagal menerbitkan SP', error: error.message });
   }
 };
 
-// --- TAMBAHAN FITUR BARU KHUSUS MANAJEMEN KETUA RT ---
+const deleteSP = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
+    }
 
-// 1. Tambah Anggota / Pengurus Baru Resmi
+    // ATURAN TEGAS: Wajib aktifkan kembali akun terlebih dahulu sebelum bisa memutihkan SP
+    if (user.status === 'Keluar') {
+      return res.status(400).json({ 
+        message: 'Aksi ditolak! Silakan ubah terlebih dahulu status keaktifan anggota ini ke Aktif/Pasif (Reaktivasi) sebelum menghapus dokumen arsip SP.' 
+      });
+    }
+
+    // Saring array untuk membuang SP yang dipilih berdasarkan ID sub-dokumen
+    const updatedSPs = (user.suratPeringatan || []).filter(
+      (sp) => sp._id.toString() !== req.params.spId
+    );
+
+    // Update database secara spesifik tanpa mengganggu field password/lainnya
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { suratPeringatan: updatedSPs } },
+      { new: true, runValidators: false }
+    );
+
+    res.json({
+      success: true,
+      message: 'Dokumen Surat Peringatan berhasil dihapus dari arsip keanggotaan.',
+      suratPeringatan: updatedUser.suratPeringatan
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal menghapus dokumen SP', error: error.message });
+  }
+};
+
 const createUserAccount = async (req, res) => {
   const { username, password, fullName, role, gender, occupationStatus, joinDate } = req.body;
   try {
@@ -72,7 +135,6 @@ const createUserAccount = async (req, res) => {
       return res.status(400).json({ message: 'Username ini sudah terdaftar di sistem' });
     }
 
-    // Fungsi User.create otomatis men-trigger hook pre('save') untuk enkripsi password baru
     await User.create({
       username,
       password,
@@ -89,7 +151,6 @@ const createUserAccount = async (req, res) => {
   }
 };
 
-// 2. Update Akun (Akomodasi Mutasi / Pergantian Jabatan Struktur Pengurus)
 const updateUserAccount = async (req, res) => {
   const { fullName, role, gender, occupationStatus, joinDate, password } = req.body;
   try {
@@ -102,9 +163,8 @@ const updateUserAccount = async (req, res) => {
     user.occupationStatus = occupationStatus || user.occupationStatus;
     user.joinDate = joinDate || user.joinDate;
 
-    // Jika ketua menginput password baru untuk reset password anggotanya
     if (password && password.trim() !== '') {
-      user.password = password; // Mengubah properti ini akan otomatis memicu ulang enkripsi bcrypt pre('save')
+      user.password = password; 
     }
 
     await user.save();
@@ -114,7 +174,6 @@ const updateUserAccount = async (req, res) => {
   }
 };
 
-// 3. Hapus Akun Anggota Pemuda
 const deleteUserAccount = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
@@ -154,4 +213,4 @@ const getMyProfile = async (req, res) => {
   }
 };
 
-module.exports = { getAllUsers, updateUserStatus, issueSP, createUserAccount, updateUserAccount, deleteUserAccount, getMyProfile };
+module.exports = { getAllUsers, updateUserStatus, issueSP, createUserAccount, updateUserAccount, deleteUserAccount, getMyProfile, deleteSP };

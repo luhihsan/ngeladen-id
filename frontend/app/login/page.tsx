@@ -1,3 +1,4 @@
+// frontend/app/login/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false); 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [bannedModalMessage, setBannedMessage] = useState('');
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -26,8 +28,23 @@ export default function LoginPage() {
       localStorage.setItem('userInfo', JSON.stringify(data));
       router.push('/dashboard');
     } catch (err: any) {
-      // Mengubah pesan error default menjadi lebih user-friendly
-      setError(err.message || 'Kredensial tidak valid. Silakan periksa kembali.');
+      const message = err?.message || err?.data?.message || 'Kredensial tidak valid. Silakan periksa kembali.';
+      
+      if (
+        typeof message === 'string' && 
+        (
+          message.toLowerCase().includes('banned') || 
+          message.toLowerCase().includes('diblokir') || 
+          message.toLowerCase().includes('dicabut') ||
+          message.toLowerCase().includes('akses ditolak') || 
+          message.toLowerCase().includes('diberhentikan') || 
+          message.toLowerCase().includes('sp3')
+        )
+      ) {
+        setBannedMessage(message);
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +106,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
-                  if (error) setError(''); // Hapus error saat user mulai ngetik lagi
+                  if (error) setError(''); 
                 }}
               />
             </div>
@@ -134,7 +151,7 @@ export default function LoginPage() {
                 ) : (
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.543 7-1.275 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.543-7z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.275 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.543-7z" />
                   </svg>
                 )}
               </button>
@@ -163,6 +180,148 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
+
+      {/* ================= REVISI TOTAL: MODAL BLOCKADE OVERLAY INLINE STYLE (ANTI-PUCET & KONTRAST MUTLAK) ================= */}
+      {bannedModalMessage && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div 
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              width: '100%',
+              maxWidth: '440px',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0'
+            }}
+          >
+            
+            {/* Header Modal - MERAH SOLID JRENG */}
+            <div 
+              style={{
+                backgroundColor: '#dc2626',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: '12px'
+              }}
+            >
+              <div 
+                style={{
+                  height: '56px',
+                  width: '56px',
+                  borderRadius: '16px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid rgba(255, 255, 255, 0.3)'
+                }}
+              >
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#ffffff" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.025em' }}>Akses Sistem Ditutup</h3>
+                <p style={{ fontSize: '11px', fontWeight: 700, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0 0' }}>Status Keanggotaan Nonaktif</p>
+              </div>
+            </div>
+
+            {/* Isi Konten Pesan - BOX MERAH SANGAR & TEKS HITAM PEKAT */}
+            <div style={{ padding: '24px', backgroundColor: '#ffffff' }}>
+              <div 
+                style={{
+                  padding: '16px',
+                  backgroundColor: '#fff5f5',
+                  border: '2px solid #feb2b2',
+                  borderRadius: '16px',
+                  fontSize: '14px',
+                  fontWeight: 800,
+                  color: '#742a2a',
+                  lineHeight: 1.5,
+                  textAlign: 'center',
+                  marginBottom: '16px'
+                }}
+              >
+                {bannedModalMessage}
+              </div>
+              
+              <div 
+                style={{
+                  padding: '12px',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#475569',
+                  lineHeight: 1.6,
+                  textAlign: 'center',
+                  marginBottom: '16px'
+                }}
+              >
+                Hak eksklusif akun login Anda ke dalam platform manajemen pemuda <span style={{ fontWeight: 800, color: '#0f172a' }}>Ngeladen.id</span> saat ini ditangguhkan akibat pelanggaran kedisiplinan organisasi.
+              </div>
+              
+              <p style={{ fontSize: '11px', fontWeight: 500, color: '#94a3b8', textAlign: 'center', margin: 0 }}>
+                Jika Anda merasa ini adalah kekeliruan administratif, silakan hubungi Seksi Kedisiplinan atau Ketua Pemuda untuk proses reaktivasi.
+              </p>
+            </div>
+
+            {/* Tombol Tutup - HITAM PEKAT KONTRAS MUTLAK */}
+            <div 
+              style={{
+                padding: '16px',
+                backgroundColor: '#f8fafc',
+                borderTop: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'end'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setBannedMessage('')}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  backgroundColor: '#0f172a',
+                  color: '#ffffff',
+                  borderRadius: '12px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#0f172a')}
+              >
+                Saya Mengerti, Kembali
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

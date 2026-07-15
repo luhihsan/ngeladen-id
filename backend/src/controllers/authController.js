@@ -14,7 +14,7 @@ const generateToken = (id, role) => {
 /**
  * @desc    Register user baru
  * @route   POST /api/auth/register
- * @access  Public (Nantinya bisa dibatasi hanya Ketua yang bisa create)
+ * @access  Public
  */
 const registerUser = async (req, res) => {
   const { username, password, fullName, role, gender, occupationStatus } = req.body;
@@ -63,6 +63,22 @@ const loginUser = async (req, res) => {
 
     // Validasi eksistensi user dan kecocokan password hash
     if (user && (await user.matchPassword(password))) {
+      
+      // --- LOGIKA CEKAL AKSES AUTO-KICK JIKA STATUS KELUAR / SP3 ---
+      if (user.status === 'Keluar') {
+        // Cek apakah di-kick akibat akumulasi jatah 3x Surat Peringatan (SP3)
+        if (user.suratPeringatan && user.suratPeringatan.length >= 3) {
+          return res.status(403).json({ 
+            message: 'Akses ditolak! Anda telah diberhentikan dari organisasi karena telah mencapai batas maksimal 3x Surat Peringatan (SP3).' 
+          });
+        }
+        // Penolakan standar status keluar non-SP
+        return res.status(403).json({ 
+          message: 'Akses ditolak! Status keanggotaan Anda saat ini telah dinonaktifkan (Keluar).' 
+        });
+      }
+      // --- AKHIR LOGIKA CEKAL AKSES ---
+
       res.json({
         _id: user._id,
         username: user.username,

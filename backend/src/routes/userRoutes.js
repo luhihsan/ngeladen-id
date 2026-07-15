@@ -1,6 +1,6 @@
 // backend/src/routes/userRoutes.js
 const express = require('express');
-const { getAllUsers, updateUserStatus, issueSP, createUserAccount, updateUserAccount, deleteUserAccount, getMyProfile } = require('../controllers/userController');
+const { getAllUsers, updateUserStatus, issueSP, createUserAccount, updateUserAccount, deleteUserAccount, getMyProfile, deleteSP } = require('../controllers/userController');
 const { protect, authorizeRole } = require('../middlewares/authMiddleware');
 const { uploadSP } = require('../middlewares/uploadMiddleware'); 
 
@@ -11,6 +11,7 @@ router.use(protect);
 router.get('/', authorizeRole('Ketua', 'Wakil Ketua', 'Sekretaris', 'Kedisiplinan'), getAllUsers);
 router.put('/:id/status', authorizeRole('Ketua', 'Wakil Ketua'), updateUserStatus);
 router.post('/:id/sp', authorizeRole('Ketua', 'Wakil Ketua'), uploadSP.single('spDocument'), issueSP);
+router.delete('/:id/sp/:spId', protect, deleteSP);
 
 router.post('/', authorizeRole('Ketua', 'Wakil Ketua'), createUserAccount);
 router.put('/:id', authorizeRole('Ketua', 'Wakil Ketua'), updateUserAccount);
