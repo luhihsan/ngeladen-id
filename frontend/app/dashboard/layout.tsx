@@ -263,7 +263,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-indigo-100 to-cyan-50 flex items-center justify-center border border-indigo-200 shadow-sm">
               <span className="text-indigo-700 font-bold text-lg">
-                {userInfo?.fullName.charAt(0).toUpperCase()}
+                {userInfo?.fullName?.charAt(0)?.toUpperCase() || '?'}
               </span>
             </div>
           </div>

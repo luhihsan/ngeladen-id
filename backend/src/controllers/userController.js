@@ -1,5 +1,7 @@
 // backend/src/controllers/userController.js
 const User = require('../models/User');
+const { Fine } = require('../models/Discipline'); 
+const MandatoryFee = require('../models/MandatoryFee'); 
 
 // --- FUNGSI LAMA LU (TETAP DIPERTAHANKAN 100%) ---
 const getAllUsers = async (req, res) => {
@@ -125,4 +127,31 @@ const deleteUserAccount = async (req, res) => {
   }
 };
 
-module.exports = { getAllUsers, updateUserStatus, issueSP, createUserAccount, updateUserAccount, deleteUserAccount };
+const getMyProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId).select('-password').lean();
+    if (!user) return res.status(404).json({ message: 'Akun tidak ditemukan' });
+
+    const myFines = await Fine.find({ user: userId, status: { $ne: 'Lunas' } })
+                              .sort({ date: -1 })
+                              .lean();
+
+    const myUnpaidKas = await MandatoryFee.find({ user: userId, status: { $ne: 'Lunas' } })
+                                          .sort({ month: -1 })
+                                          .lean();
+
+    res.json({
+      success: true,
+      profile: user,
+      fines: myFines,
+      mandatoryFees: myUnpaidKas, 
+      suratPeringatan: user.suratPeringatan || [], 
+      userStatus: user.status
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal memuat rapor profil pribadi', error: error.message });
+  }
+};
+
+module.exports = { getAllUsers, updateUserStatus, issueSP, createUserAccount, updateUserAccount, deleteUserAccount, getMyProfile };
