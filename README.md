@@ -1,46 +1,46 @@
-# ngeladen.id - Sistem Manajemen & Administrasi Organisasi[cite: 1]
+# ngeladen.id - Sistem Manajemen & Administrasi Organisasi
 
-**ngeladen.id** adalah platform web *full-stack* yang dirancang untuk mendigitalisasi seluruh proses administrasi, pengelolaan keuangan, pencatatan aset, serta pemantauan kedisiplinan dalam suatu organisasi atau komunitas secara terpusat[cite: 1]. Terinspirasi dari kata bahasa Jawa *"ngeladen"* yang berarti melayani, platform ini dibangun untuk membantu para pengurus (Ketua, Sekretaris, Bendahara) memberikan pelayanan administrasi yang transparan, akurat, dan terintegrasi kepada seluruh anggotanya[cite: 1].
+**ngeladen.id** adalah platform web *full-stack* yang dirancang untuk mendigitalisasi seluruh proses administrasi, pengelolaan keuangan, pencatatan aset, serta pemantauan kedisiplinan dalam suatu organisasi atau komunitas secara terpusat. Terinspirasi dari kata bahasa Jawa *"ngeladen"* yang berarti melayani, platform ini dibangun untuk membantu para pengurus (Ketua, Sekretaris, Bendahara) memberikan pelayanan administrasi yang transparan, akurat, dan terintegrasi kepada seluruh anggotanya.
 
 ---
 
 ## 🎨 Gambaran Umum Sistem
 
-Sistem ini menggunakan arsitektur modern berbasis pemisahan fungsi (*Decoupled Architecture*), di mana bagian *Frontend* (antarmuka pengguna) dan *Backend* (pemrosesan data dan API) berjalan secara independen namun saling berkomunikasi secara *real-time*[cite: 1]. 
+Sistem ini menggunakan arsitektur modern berbasis pemisahan fungsi (*Decoupled Architecture*), di mana bagian *Frontend* (antarmuka pengguna) dan *Backend* (pemrosesan data dan API) berjalan secara independen namun saling berkomunikasi secara *real-time*. 
 
-Dengan pendekatan ini, sistem mampu menyajikan performa yang responsif, manajemen beban server yang efisien, serta skalabilitas tinggi untuk pengembangan fitur di masa mendatang[cite: 1].
+Dengan pendekatan ini, sistem mampu menyajikan performa yang responsif, manajemen beban server yang efisien, serta skalabilitas tinggi untuk pengembangan fitur di masa mendatang.
 
 ---
 
 ## 🚀 Penjelasan Fitur & Modul Utama
 
-Sistem **ngeladen.id** dibagi menjadi beberapa modul fungsional berbasis hak akses (*Multi-role*) yang disesuaikan dengan struktur kepengurusan organisasi[cite: 1]:
+Sistem **ngeladen.id** dibagi menjadi beberapa modul fungsional berbasis hak akses (*Multi-role*) yang disesuaikan dengan struktur kepengurusan organisasi:
 
 ### 1. 🔐 Autentikasi & Otorisasi Berbasis Peran (*Multi-Role Auth*)
-* **Sistem Login Keamanan Tinggi:** Proses masuk yang dilindungi dengan enkripsi kata sandi untuk mencegah akses tidak sah[cite: 1].
-* **Manajemen Hak Akses Dinamis:** Memisahkan batasan fitur dan dashboard secara spesifik untuk **Ketua**, **Sekretaris**, **Bendahara**, dan **Anggota**[cite: 1].
+* **Sistem Login Keamanan Tinggi:** Proses masuk yang dilindungi dengan enkripsi kata sandi untuk mencegah akses tidak sah.
+* **Manajemen Hak Akses Dinamis:** Memisahkan batasan fitur dan dashboard secara spesifik untuk **Ketua**, **Sekretaris**, **Bendahara**, dan **Anggota**.
 
 ### 2. 💼 Modul Keuangan & Kas (Bendahara)
-* **Manajemen Kas Wajib:** Bendahara dapat mengelola, memantau, dan mencatat tagihan kas wajib berkala untuk setiap anggota[cite: 1].
-* **Pencatatan Infak Khusus:** Pencatatan dana sukarela dari anggota maupun donatur luar, termasuk pelacakan program khusus seperti Infak Kurban[cite: 1].
-* **Arus Transaksi:** Pencatatan menyeluruh untuk setiap pengeluaran dan pemasukan kas organisasi demi menjamin transparansi[cite: 1].
+* **Manajemen Kas Wajib:** Bendahara dapat mengelola, memantau, dan mencatat tagihan kas wajib berkala untuk setiap anggota.
+* **Pencatatan Infak Khusus:** Pencatatan dana sukarela dari anggota maupun donatur luar, termasuk pelacakan program khusus seperti Infak Kurban.
+* **Arus Transaksi:** Pencatatan menyeluruh untuk setiap pengeluaran dan pemasukan kas organisasi demi menjamin transparansi.
 
 ### 3. 📊 Modul Kedisiplinan & Kehadiran (Sekretaris & Ketua)
-* **Presensi Pertemuan:** Pencatatan kehadiran digital saat rapat, koordinasi, atau kegiatan resmi organisasi[cite: 1].
-* **Perhitungan Denda Otomatis:** Sistem akan menghitung denda secara otomatis bagi anggota yang terlambat atau tidak hadir tanpa keterangan yang valid[cite: 1].
-* **Manajemen Kelompok:** Pengelompokan anggota ke dalam tim kerja atau divisi tertentu agar alokasi tugas lebih teratur[cite: 1].
+* **Presensi Pertemuan:** Pencatatan kehadiran digital saat rapat, koordinasi, atau kegiatan resmi organisasi.
+* **Perhitungan Denda Otomatis:** Sistem akan menghitung denda secara otomatis bagi anggota yang terlambat atau tidak hadir tanpa keterangan yang valid.
+* **Manajemen Kelompok:** Pengelompokan anggota ke dalam tim kerja atau divisi tertentu agar alokasi tugas lebih teratur.
 
 ### 4. 📦 Modul Inventaris & Bekakas (Fasilitator/Logistik)
-* **Pencatatan Aset:** Pendataan barang milik organisasi beserta kode unik, nama, dan jumlahnya[cite: 1].
-* **Log Peminjaman Bekakas:** Pelacakan keluar-masuk barang, mencakup siapa yang meminjam, tanggal kembali, serta status kondisi kelayakan barang[cite: 1].
+* **Pencatatan Aset:** Pendataan barang milik organisasi beserta kode unik, nama, dan jumlahnya.
+* **Log Peminjaman Bekakas:** Pelacakan keluar-masuk barang, mencakup siapa yang meminjam, tanggal kembali, serta status kondisi kelayakan barang.
 
 ### 5. 📅 Agenda & Notulensi Digital (Sekretariat)
-* **Pengumuman Agenda:** Penjadwalan rapat atau acara organisasi agar anggota mendapatkan informasi terkini[cite: 1].
-* **Rich Text Editor untuk Notulen:** Pengurus dapat mengetik notulensi hasil rapat langsung di dalam sistem menggunakan editor teks kaya (*Rich Text Editor*) yang dinamis dan rapi[cite: 1].
+* **Pengumuman Agenda:** Penjadwalan rapat atau acara organisasi agar anggota mendapatkan informasi terkini.
+* **Rich Text Editor untuk Notulen:** Pengurus dapat mengetik notulensi hasil rapat langsung di dalam sistem menggunakan editor teks kaya (*Rich Text Editor*) yang dinamis dan rapi.
 
 ### 6. 📥 Kotak Saran & Ekspor Laporan
-* **Kotak Saran Terstruktur:** Anggota dapat memberikan aspirasi, kritik, atau masukan secara langsung tanpa perlu proses birokrasi yang rumit[cite: 1].
-* **Ekspor Dokumen ke Excel:** Kemudahan mengunduh rekapitulasi data (seperti daftar denda, presensi, dan kas) langsung ke berkas format spreadsheet (`.xlsx`) demi kebutuhan pelaporan offline[cite: 1].
+* **Kotak Saran Terstruktur:** Anggota dapat memberikan aspirasi, kritik, atau masukan secara langsung tanpa perlu proses birokrasi yang rumit.
+* **Ekspor Dokumen ke Excel:** Kemudahan mengunduh rekapitulasi data (seperti daftar denda, presensi, dan kas) langsung ke berkas format spreadsheet (`.xlsx`) demi kebutuhan pelaporan offline.
 
 ---
 
@@ -49,18 +49,18 @@ Sistem **ngeladen.id** dibagi menjadi beberapa modul fungsional berbasis hak aks
 Proyek ini dibangun menggunakan kombinasi teknologi modern, tangguh, serta memiliki komunitas pengembang yang sangat luas:
 
 ### 💻 Frontend (Antarmuka Pengguna)
-* **Next.js (App Router):** Framework React tingkat lanjut yang mendukung *routing* dinamis berbasis folder, rendering cepat, serta optimasi aset bawaan[cite: 1].
-* **React & TypeScript:** Membuat antarmuka menjadi reaktif sekaligus memastikan tipe data aman (*type-safe*) sejak tahap penulisan kode[cite: 1].
-* **Tailwind CSS:** Framework CSS berbasis utilitas untuk mendesain tampilan dashboard yang modern, responsif, dan ringan tanpa menulis banyak baris CSS manual[cite: 1].
-* **TipTap Editor:** Pustaka editor teks kaya berbasis *prosemirror* yang disematkan langsung pada modul sekretariat untuk penulisan notulensi rapat[cite: 1].
-* **SheetJS (xlsx):** Pustaka untuk konversi dan pembuatan berkas Excel langsung dari sisi browser[cite: 1].
+* **Next.js (App Router):** Framework React tingkat lanjut yang mendukung *routing* dinamis berbasis folder, rendering cepat, serta optimasi aset bawaan.
+* **React & TypeScript:** Membuat antarmuka menjadi reaktif sekaligus memastikan tipe data aman (*type-safe*) sejak tahap penulisan kode.
+* **Tailwind CSS:** Framework CSS berbasis utilitas untuk mendesain tampilan dashboard yang modern, responsif, dan ringan tanpa menulis banyak baris CSS manual.
+* **TipTap Editor:** Pustaka editor teks kaya berbasis *prosemirror* yang disematkan langsung pada modul sekretariat untuk penulisan notulensi rapat.
+* **SheetJS (xlsx):** Pustaka untuk konversi dan pembuatan berkas Excel langsung dari sisi browser.
 
 ### ⚙️ Backend (Server & Database)
-* **Node.js & Express.js:** Lingkungan eksekusi JavaScript di sisi server dan framework minimalis untuk mengelola lalu lintas RESTful API dengan performa tinggi[cite: 1].
-* **MongoDB & Mongoose:** Database NoSQL berbasis dokumen yang sangat fleksibel, digabungkan dengan Mongoose sebagai ODM (*Object Data Modeling*) untuk mendefinisikan skema data yang ketat[cite: 1].
-* **JSON Web Token (JWT):** Metode pertukaran data otentikasi yang aman dan tidak memerlukan penyimpanan sesi (*stateless*)[cite: 1].
-* **Bcrypt.js:** Algoritma hashing satu arah untuk mengamankan kata sandi pengguna sebelum disimpan ke database[cite: 1].
-* **Multer:** Middleware khusus untuk menangani unggahan file bukti administrasi dan dokumen lainnya[cite: 1].
+* **Node.js & Express.js:** Lingkungan eksekusi JavaScript di sisi server dan framework minimalis untuk mengelola lalu lintas RESTful API dengan performa tinggi.
+* **MongoDB & Mongoose:** Database NoSQL berbasis dokumen yang sangat fleksibel, digabungkan dengan Mongoose sebagai ODM (*Object Data Modeling*) untuk mendefinisikan skema data yang ketat.
+* **JSON Web Token (JWT):** Metode pertukaran data otentikasi yang aman dan tidak memerlukan penyimpanan sesi (*stateless*).
+* **Bcrypt.js:** Algoritma hashing satu arah untuk mengamankan kata sandi pengguna sebelum disimpan ke database.
+* **Multer:** Middleware khusus untuk menangani unggahan file bukti administrasi dan dokumen lainnya.
 
 ## 🧪 Quality Assurance & Test Automation Showcase (Playwright)
 
@@ -121,15 +121,15 @@ Berikut adalah gambaran ringkas struktur file di dalam repositori ini:
 
 ```text
 ngeladen-id/
-├── backend/               # Kode sumber server API (Node.js & Express)[cite: 1]
+├── backend/               # Kode sumber server API (Node.js & Express)
 │   ├── src/
-│   │   ├── controllers/   # Logika bisnis penanganan request (Kas, Presensi, User, dll)[cite: 1]
-│   │   ├── middlewares/   # Lapisan keamanan token (JWT) & filter file upload[cite: 1]
-│   │   ├── models/        # Definisi struktur data MongoDB menggunakan Mongoose[cite: 1]
-│   │   └── routes/        # Jalur endpoint API yang dapat diakses oleh Frontend[cite: 1]
-│   └── server.js          # File utama untuk menjalankan server backend[cite: 1]
-├── frontend/              # Kode sumber aplikasi web pengguna (Next.js)[cite: 1]
-│   ├── app/               # Struktur halaman web (Halaman login & panel dashboard)[cite: 1]
-│   ├── public/            # File aset statis seperti logo, gambar, dan ikon[cite: 1]
-│   └── utils/             # Fungsi utilitas pembantu, termasuk konfigurasi koneksi API[cite: 1]
-└── e2e-tests/             # Skenario otomatis pengujian fungsionalitas sistem (Playwright)[cite: 1]
+│   │   ├── controllers/   # Logika bisnis penanganan request (Kas, Presensi, User, dll)
+│   │   ├── middlewares/   # Lapisan keamanan token (JWT) & filter file upload
+│   │   ├── models/        # Definisi struktur data MongoDB menggunakan Mongoose
+│   │   └── routes/        # Jalur endpoint API yang dapat diakses oleh Frontend
+│   └── server.js          # File utama untuk menjalankan server backend
+├── frontend/              # Kode sumber aplikasi web pengguna (Next.js)
+│   ├── app/               # Struktur halaman web (Halaman login & panel dashboard)
+│   ├── public/            # File aset statis seperti logo, gambar, dan ikon
+│   └── utils/             # Fungsi utilitas pembantu, termasuk konfigurasi koneksi API
+└── e2e-tests/             # Skenario otomatis pengujian fungsionalitas sistem (Playwright)
