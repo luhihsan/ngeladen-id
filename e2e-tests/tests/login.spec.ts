@@ -1,62 +1,47 @@
-// e2e-tests/tests/login.spec.ts
 import { test, expect } from '@playwright/test';
+import { LoginPage } from '../tests/pages/LoginPage';
 
-// Set base URL agar tidak perlu nulis localhost terus
-test.use({ baseURL: 'http://localhost:3000' });
 
-test.describe('Authentication Flow & UI Validations', () => {
-  
-  test('Negative: Harus memunculkan error jika kredensial salah', async ({ page }) => {
-    await page.goto('/login');
-
-    // Mengisi input berdasarkan placeholder yang kita buat di UI
-    await page.getByPlaceholder('Masukkan username').fill('user_ngasal');
-    await page.getByPlaceholder('Masukan Password').fill('password_salah');
-    
-    // Klik tombol login
-    await page.getByRole('button', { name: 'Masuk ke Sistem' }).click();
-
-    // Memastikan alert error muncul
-    const errorMessage = page.locator('.text-red-600');
-    await expect(errorMessage).toBeVisible();
-    await expect(errorMessage).toContainText('Kredensial tidak valid. Silakan periksa kembali.');
-    
-    // Memastikan URL tidak berpindah (masih di halaman login)
-    await expect(page).toHaveURL(/.*login/);
-  });
+test.describe('Authentication Flow & UI Validations (Refactored with POM)', () => {
 
   test('Positive: Harus berhasil login dan masuk ke dashboard', async ({ page }) => {
-    await page.goto('/login');
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
 
-    // Menggunakan akun yang baru kita daftarkan di database tadi
-    await page.getByPlaceholder('Masukkan username').fill('budi_bendahara');
-    await page.getByPlaceholder('Masukan Password').fill('password123');
+    const username = process.env.VALID_USERNAME_KETUA || 'rafly_ketua';
+    const password = process.env.VALID_PASSWORD_KETUA || '12345678';
     
-    await page.getByRole('button', { name: 'Masuk ke Sistem' }).click();
+    await loginPage.login(username, password);
 
-    // Robot akan menunggu sampai navigasi URL berubah menjadi /dashboard
     await page.waitForURL('**/dashboard');
     await expect(page).toHaveURL(/.*dashboard/);
     
-    // Mengecek apakah localStorage menyimpan data user
     const userInfo = await page.evaluate(() => localStorage.getItem('userInfo'));
     expect(userInfo).not.toBeNull();
-    expect(JSON.parse(userInfo as string).username).toBe('budi_bendahara');
+    expect(JSON.parse(userInfo as string).username).toBe(username);
+  });
+  
+  test('Negative: Harus memunculkan error jika kredensial salah', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+
+    await loginPage.login('user_ngasal', 'password_salah');
+
+    await expect(loginPage.errorMessage).toBeVisible();
+    await expect(loginPage.errorMessage).toContainText('Username atau password salah');
+    
+    await expect(page).toHaveURL(/.*login/);
   });
 
   test('UI Element: Toggle show/hide password harus berfungsi', async ({ page }) => {
-    await page.goto('/login');
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
 
-    const passwordInput = page.getByPlaceholder('Masukan Password');
-    await passwordInput.fill('rahasia123');
-    
-    // Secara default, tipe input harus 'password'
-    await expect(passwordInput).toHaveAttribute('type', 'password');
+    await loginPage.passwordInput.fill('12345678');
+    await expect(loginPage.passwordInput).toHaveAttribute('type', 'password');
 
-    // Klik tombol ikon mata (berada di dalam input relative)
-    await page.locator('button[type="button"]').click();
+    await loginPage.passwordToggleBtn.click();
 
-    // Tipe input harus berubah menjadi 'text' agar tulisan terlihat
-    await expect(passwordInput).toHaveAttribute('type', 'text');
+    await expect(loginPage.passwordInput).toHaveAttribute('type', 'text');
   });
 });

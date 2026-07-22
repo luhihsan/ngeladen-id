@@ -31,13 +31,12 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}) => {
       headers,
     });
 
-    // 2. PENANGANAN 401 (Unauthorized): Token kadaluwarsa/tidak valid
     if (response.status === 401) {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         localStorage.removeItem('userInfo');
-        window.location.href = '/login'; // Redirect paksa ke login
+        window.location.href = '/login'; 
+        return;
       }
-      throw new Error('Sesi berakhir, silakan login kembali.');
     }
 
     // 3. Menangani JSON Parsing jika response kosong
