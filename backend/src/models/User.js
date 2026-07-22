@@ -56,6 +56,14 @@ const userSchema = new mongoose.Schema({
     required: true,
     default: Date.now, 
   },
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true, 
+    lowercase: true, 
+    trim: true 
+  },
+  isMustChangePassword: { type: Boolean, default: true },
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {

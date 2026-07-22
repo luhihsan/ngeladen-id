@@ -15,6 +15,7 @@ interface SP {
 interface UserData {
   _id: string;
   username: string;
+  email?: string;
   fullName: string;
   role: string;
   status: string;
@@ -53,9 +54,11 @@ export default function ManajemenAnggotaPage() {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editUserId, setEditUserId] = useState('');
+  
   const [accountForm, setAccountForm] = useState({
     username: '',
     password: '',
+    email: '', 
     fullName: '',
     role: 'Anggota',
     gender: 'Laki-laki',
@@ -65,6 +68,14 @@ export default function ManajemenAnggotaPage() {
   const [isSubmittingAccount, setIsSubmittingAccount] = useState(false);
 
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+
+  // State untuk Modal Konfirmasi Pembuatan Akun Sukses
+  const [createdAccountSuccess, setCreatedAccountSuccess] = useState<{
+    fullName: string;
+    username: string;
+    email: string;
+    message?: string;
+  } | null>(null);
 
   useEffect(() => {
     const role = JSON.parse(localStorage.getItem('userInfo') || '{}').role;
@@ -99,6 +110,7 @@ export default function ManajemenAnggotaPage() {
     setAccountForm({
       username: '',
       password: '',
+      email: '',
       fullName: '',
       role: 'Anggota',
       gender: 'Laki-laki',
@@ -114,6 +126,7 @@ export default function ManajemenAnggotaPage() {
     setAccountForm({
       username: user.username,
       password: '',
+      email: user.email || '',
       fullName: user.fullName,
       role: user.role,
       gender: user.gender,
@@ -131,13 +144,25 @@ export default function ManajemenAnggotaPage() {
       const method = isEditMode ? 'PUT' : 'POST';
       
       const payload = { ...accountForm };
-      if (isEditMode && !payload.password.trim()) {
+
+      if (!isEditMode) {
+        delete (payload as any).password;
+      } else if (!payload.password.trim()) {
         delete (payload as any).password;
       }
 
-      await fetchAPI(endpoint, { method, body: JSON.stringify(payload) });
+      const res = await fetchAPI(endpoint, { method, body: JSON.stringify(payload) });
       setIsAccountModalOpen(false);
       loadUsers();
+
+      if (!isEditMode) {
+        setCreatedAccountSuccess({
+          fullName: accountForm.fullName,
+          username: accountForm.username,
+          email: accountForm.email,
+          message: res?.message
+        });
+      }
     } catch (err: any) {
       alert(err.message || 'Gagal memproses data akun keanggotaan');
     } finally {
@@ -276,7 +301,7 @@ export default function ManajemenAnggotaPage() {
       <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl w-fit text-xs font-medium">
         {(['Semua', 'Pengurus', 'Anggota'] as const).map(tab => (
           <button key={tab} onClick={() => setRoleFilter(tab)} className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${roleFilter === tab ? 'bg-white text-indigo-600 shadow-sm font-semibold border border-slate-200/40' : 'text-slate-600 hover:text-slate-900'}`}>
-            {tab === 'Anggota' ? 'Anggota Biasas' : tab}
+            {tab === 'Anggota' ? 'Anggota Biasa' : tab}
           </button>
         ))}
       </div>
@@ -321,20 +346,66 @@ export default function ManajemenAnggotaPage() {
               <h3 className="text-base font-semibold text-slate-800">{isEditMode ? 'Perbarui Struktur / Profil Anggota' : 'Registrasi Akun Anggota Pemuda'}</h3>
             </div>
             <form onSubmit={handleSubmitAccount} className="p-5 space-y-4 text-sm font-normal">
+              
+              {/* INPUT USERNAME & PASSWORD */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Username Login</label>
-                  <input required disabled={isEditMode} type="text" placeholder="username_login" className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none disabled:bg-slate-50 disabled:cursor-not-allowed font-normal" value={accountForm.username} onChange={e => setAccountForm({ ...accountForm, username: e.target.value })} />
+                  <input 
+                    required 
+                    disabled={isEditMode} 
+                    type="text" 
+                    placeholder="username_login" 
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none disabled:bg-slate-50 disabled:cursor-not-allowed font-normal" 
+                    value={accountForm.username} 
+                    onChange={e => setAccountForm({ ...accountForm, username: e.target.value })} 
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Password Login</label>
-                  <input required={!isEditMode} type="password" placeholder={isEditMode ? 'Isi jika ingin direset' : '••••••••'} className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none font-normal" value={accountForm.password} onChange={e => setAccountForm({ ...accountForm, password: e.target.value })} />
+                  {isEditMode ? (
+                    <input 
+                      type="password" 
+                      placeholder="Isi jika ingin direset" 
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none font-normal" 
+                      value={accountForm.password} 
+                      onChange={e => setAccountForm({ ...accountForm, password: e.target.value })} 
+                    />
+                  ) : (
+                    // TAMPILAN PASSWORD TERKUNCI AUTO-GENERATE UNTUK REGISTRASI
+                    <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-500 font-mono flex items-center justify-between cursor-not-allowed select-none">
+                      <span>••••••••</span>
+                      <span className="text-[10px] text-indigo-600 font-sans font-semibold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                        Otomatis 🔒
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* INPUT EMAIL */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Email Aktif Anggota</label>
+                <input 
+                  required 
+                  type="email" 
+                  placeholder="contoh: anggota@gmail.com" 
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none font-normal" 
+                  value={accountForm.email} 
+                  onChange={e => setAccountForm({ ...accountForm, email: e.target.value })} 
+                />
+                {!isEditMode && (
+                  <p className="text-[10px] text-indigo-600 font-medium mt-1">
+                    * Kredensial login awal akan dikirimkan otomatis ke email ini.
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Nama Lengkap Sesuai KTP</label>
                 <input required type="text" placeholder="Masukkan nama lengkap" className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none font-normal" value={accountForm.fullName} onChange={e => setAccountForm({ ...accountForm, fullName: e.target.value })} />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Struktur Jabatan / Role</label>
@@ -354,6 +425,7 @@ export default function ManajemenAnggotaPage() {
                   <input required type="date" className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 outline-none font-normal" value={accountForm.joinDate} onChange={e => setAccountForm({ ...accountForm, joinDate: e.target.value })} />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Jenis Kelamin</label>
@@ -370,9 +442,10 @@ export default function ManajemenAnggotaPage() {
                   </select>
                 </div>
               </div>
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setIsAccountModalOpen(false)} className="flex-1 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">Batal</button>
-                <button type="submit" disabled={isSubmittingAccount || !accountForm.fullName || !accountForm.username} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer">
+                <button type="submit" disabled={isSubmittingAccount || !accountForm.fullName || !accountForm.username || !accountForm.email} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer">
                   {isSubmittingAccount ? 'Memproses...' : 'Simpan Profil'}
                 </button>
               </div>
@@ -446,6 +519,68 @@ export default function ManajemenAnggotaPage() {
           </div>
         </div>
       )}
+
+      {/* ================= MODAL KONFIRMASI PEMBUATAN AKUN SUKSES (WITH BACKDROP BLUR) ================= */}
+      {createdAccountSuccess && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200"
+          style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+        >
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
+            
+            {/* Header Modal - Icon Centang Hijau */}
+            <div className="p-6 pb-4 bg-gradient-to-b from-emerald-50 to-white text-center flex flex-col items-center">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-200 mb-3.5 border border-emerald-500 shrink-0">
+                <svg className="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Akun Berhasil Dibuat</h3>
+              <p className="text-xs font-medium text-slate-500 mt-1">Data anggota resmi tersimpan di dalam sistem.</p>
+            </div>
+
+            {/* Kartu Rincian Kredensial & Status Email */}
+            <div className="p-6 pt-2 space-y-4">
+              <div className="p-4 bg-slate-100/80 rounded-2xl border border-slate-200 space-y-3 text-xs">
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium">Nama Anggota</span>
+                  <span className="font-bold text-slate-900 text-right">{createdAccountSuccess.fullName}</span>
+                </div>
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium">Username Login</span>
+                  <span className="font-mono font-bold text-indigo-700 bg-indigo-100/80 px-2.5 py-1 rounded-md border border-indigo-200 text-xs">
+                    {createdAccountSuccess.username}
+                  </span>
+                </div>
+                <div className="flex justify-between items-start">
+                  <span className="text-slate-500 font-medium">Email Tujuan</span>
+                  <span className="font-semibold text-slate-800 break-all text-right max-w-[200px]">
+                    {createdAccountSuccess.email}
+                  </span>
+                </div>
+              </div>
+
+              {/* Notifikasi Pengiriman Email */}
+              <div className="p-3.5 bg-emerald-50 border-emerald-300/80 rounded-2xl flex items-start gap-3 text-xs text-emerald-900 font-medium">
+                <span className="text-lg leading-none shrink-0">📧</span>
+                <p className="leading-relaxed">
+                  Password sementara telah di-generate otomatis. Instruksi verifikasi & login telah dikirimkan ke <b className="text-emerald-950 underline decoration-emerald-400">{createdAccountSuccess.email}</b>.
+                </p>
+              </div>
+
+              {/* Tombol Tutup */}
+              <button
+                type="button"
+                onClick={() => setCreatedAccountSuccess(null)}
+                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-black font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all uppercase tracking-wider border border-slate-800 active:scale-[0.99]"
+              >
+                 Tutup
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -471,7 +606,6 @@ export default function ManajemenAnggotaPage() {
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            {/* REVISI JOSS: Nama tampil FULL melingkar ke bawah tanpa truncate potongan */}
             <h3 className="font-bold text-slate-900 text-base leading-snug break-words pr-12">{user.fullName}</h3>
             <p className="text-xs font-semibold text-indigo-600 mt-1">{user.role} • <span className="text-slate-500 font-normal">{user.gender}</span></p>
             <p className="text-[10px] text-slate-400 font-mono mt-0.5 tracking-tight">Terdaftar: {user.joinDate ? new Date(user.joinDate).toLocaleDateString('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}) : '—'}</p>
@@ -490,7 +624,6 @@ export default function ManajemenAnggotaPage() {
           <div className="flex justify-between items-center text-xs font-normal">
             <span className="text-slate-500">Total SP Aktif:</span>
             
-            {/* REVISI ACCORDION BTN: Badge interaktif pembuka dropdown riwayat dokumen SP */}
             <button
               type="button"
               disabled={spCount === 0}
@@ -517,7 +650,6 @@ export default function ManajemenAnggotaPage() {
                   </div>
                   <p className="text-slate-700 font-normal leading-relaxed mt-1.5"><span className="font-semibold text-slate-900">Alasan:</span> {sp.reason}</p>
                   
-                  {/* BARIS UTILITY BUTTONS DI DALAM TIAP LEMBAR SP */}
                   <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                     {sp.fileUrl ? (
                       <a 
@@ -530,7 +662,6 @@ export default function ManajemenAnggotaPage() {
                       </a>
                     ) : <span className="text-[10px] text-slate-400 italic">Tanpa lampiran</span>}
 
-                    {/* TOMBOL BARU: Muncul khusus untuk peran Ketua/Waket & akun sudah reaktivasi (bukan Keluar) */}
                     {isChairman && user.status !== 'Keluar' && (
                       <button
                         type="button"

@@ -2,6 +2,8 @@
 const User = require('../models/User');
 const { Fine } = require('../models/Discipline'); 
 const MandatoryFee = require('../models/MandatoryFee'); 
+const crypto = require('crypto');
+const { sendAccountCreatedEmail } = require('../utils/mailer');
 
 // --- FUNGSI MANAJEMEN ANGGOTA ---
 const getAllUsers = async (req, res) => {
@@ -125,28 +127,42 @@ const deleteSP = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Gagal menghapus dokumen SP', error: error.message });
   }
-};
+}; 
 
 const createUserAccount = async (req, res) => {
-  const { username, password, fullName, role, gender, occupationStatus, joinDate } = req.body;
+  const { username, email, fullName, role, gender, occupationStatus, joinDate } = req.body;
+
   try {
-    const isExist = await User.findOne({ username });
-    if (isExist) {
-      return res.status(400).json({ message: 'Username ini sudah terdaftar di sistem' });
+    if (!email) {
+      return res.status(400).json({ message: 'Email wajib diisi' });
     }
+
+    const tempPassword = crypto.randomBytes(4).toString('hex');
 
     await User.create({
       username,
-      password,
+      email,
+      password: tempPassword, 
       fullName,
       role,
       gender,
       occupationStatus,
-      joinDate: joinDate || Date.now()
+      joinDate: joinDate || Date.now(),
+      isMustChangePassword: true 
     });
 
-    res.status(201).json({ success: true, message: 'Akun keanggotaan berhasil diterbitkan' });
+    sendAccountCreatedEmail(email, fullName, username, tempPassword)
+      .then(() => console.log(`✅ [BACKGROUND] Email kredensial sukses terkirim ke ${email}`))
+      .catch((emailErr) => console.error('⚠️ [BACKGROUND] Gagal kirim email:', emailErr.message));
+
+    // 4. LANGSUNG BALAS RESPONS KE FRONTEND KILAT!
+    return res.status(201).json({ 
+      success: true, 
+      message: `Akun keanggotaan berhasil diterbitkan. Kredensial login sedang dikirim ke ${email}` 
+    });
+
   } catch (error) {
+    console.error('createUserAccount error:', error);
     res.status(500).json({ message: 'Gagal menambahkan akun anggota', error: error.message });
   }
 };
