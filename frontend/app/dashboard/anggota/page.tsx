@@ -36,7 +36,10 @@ export default function ManajemenAnggotaPage() {
   // Filter Peran Kategori Pengurus vs Anggota Biasa
   const [roleFilter, setRoleFilter] = useState<'Semua' | 'Pengurus' | 'Anggota'>('Semua');
 
-  // BARU: State Pengunci ID Kartu untuk Menampilkan Riwayat Lembar SP secara Inline
+  // BARU: State Kata Kunci Pencarian Nama / Username / Email
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // State Pengunci ID Kartu untuk Menampilkan Riwayat Lembar SP secara Inline
   const [expandedSpUserId, setExpandedSpUserId] = useState<string | null>(null);
 
   // States Modal SP
@@ -83,16 +86,29 @@ export default function ManajemenAnggotaPage() {
     loadUsers();
   }, []);
 
-  // Logic memilah data berdasarkan pilihan filter peran pengurus vs anggota biasa
+  // UPDATE LOGIC: Filtering Kombinasi (Role Filter + Search Query)
   useEffect(() => {
     let result = [...users];
+
+    // 1. Saring Berdasarkan Kategori Role Tab
     if (roleFilter === 'Pengurus') {
-      result = users.filter(u => u.role !== 'Anggota');
+      result = result.filter(u => u.role !== 'Anggota');
     } else if (roleFilter === 'Anggota') {
-      result = users.filter(u => u.role === 'Anggota');
+      result = result.filter(u => u.role === 'Anggota');
     }
+
+    // 2. Saring Berdasarkan Pencarian (Nama, Username, atau Email)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(u => 
+        u.fullName?.toLowerCase().includes(q) ||
+        u.username?.toLowerCase().includes(q) ||
+        (u.email && u.email.toLowerCase().includes(q))
+      );
+    }
+
     setFilteredUsers(result);
-  }, [users, roleFilter]);
+  }, [users, roleFilter, searchQuery]);
 
   const loadUsers = async () => {
     try {
@@ -231,7 +247,6 @@ export default function ManajemenAnggotaPage() {
       const res = await fetchAPI(`/users/${userId}/sp/${spId}`, { method: 'DELETE' });
       alert(res.message);
       
-      // Update state local rapi seketika tanpa refresh halaman
       setUsers(users.map(u => u._id === userId ? { ...u, suratPeringatan: res.suratPeringatan } : u));
     } catch (err: any) {
       alert(err.message || 'Gagal menghapus dokumen SP');
@@ -285,36 +300,95 @@ export default function ManajemenAnggotaPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 text-slate-800 w-full font-normal">
+      
+      {/* Header Utama */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Manajemen Anggota Pemuda</h1>
           <p className="text-sm text-slate-500 mt-0.5">Mendaftarkan anggota baru, mutasi pergantian pengurus, dan monitoring status keaktifan.</p>
         </div>
         {isChairman && (
-          <button onClick={openCreateAccountModal} className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors cursor-pointer">
+          <button onClick={openCreateAccountModal} className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors cursor-pointer shrink-0">
             Registrasi Anggota Baru
           </button>
         )}
       </div>
 
-      {/* Navigasi Filter Kategori Peran Akun */}
-      <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl w-fit text-xs font-medium">
-        {(['Semua', 'Pengurus', 'Anggota'] as const).map(tab => (
-          <button key={tab} onClick={() => setRoleFilter(tab)} className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${roleFilter === tab ? 'bg-white text-indigo-600 shadow-sm font-semibold border border-slate-200/40' : 'text-slate-600 hover:text-slate-900'}`}>
-            {tab === 'Anggota' ? 'Anggota Biasa' : tab}
-          </button>
-        ))}
-      </div>
+     {/* BARIS KONTROL: Filter Tab (Pojok Kiri) & Search Bar (Pojok Kanan Sejajar Tombol Regis) */}
+{/* BARIS KONTROL: Kunci Mati dengan Inline Style */}
+<div className="flex flex-col gap-3 w-full items-start">
+  
+  {/* 1. Navigasi Filter Role */}
+  <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl w-fit text-xs font-medium shrink-0">
+    {(['Semua', 'Pengurus', 'Anggota'] as const).map(tab => (
+      <button 
+        key={tab} 
+        onClick={() => setRoleFilter(tab)} 
+        className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${
+          roleFilter === tab 
+            ? 'bg-white text-indigo-600 shadow-sm font-semibold border border-slate-200/40' 
+            : 'text-slate-600 hover:text-slate-900'
+        }`}
+      >
+        {tab === 'Anggota' ? 'Anggota Biasa' : tab}
+      </button>
+    ))}
+  </div>
+
+  {/* 2. Search Bar - Dikunci Lebar & Padding-nya pakai Inline Style */}
+  <div 
+    className="relative w-full"
+    style={{ maxWidth: '280px' }} /* Kunci lebar agar sejajar dengan ujung tombol "Anggota Biasa" */
+  >
+    {/* Ikon Loop */}
+    <div 
+      className="absolute inset-y-0 flex items-center pointer-events-none z-10 text-slate-400"
+      style={{ left: '12px' }} /* Kunci posisi ikon dari kiri */
+    >
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    </div>
+
+    {/* Input Field */}
+    <input
+      type="text"
+      placeholder="Cari nama / email..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      className="w-full py-2 pr-8 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs font-normal"
+      style={{ paddingLeft: '38px' }} /* Kunci jarak teks placeholder agar TIDAK NABRAK ikon */
+    />
+
+    {/* Tombol Clear (X) */}
+    {searchQuery && (
+      <button
+        type="button"
+        onClick={() => setSearchQuery('')}
+        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer z-10"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    )}
+  </div>
+
+</div>
 
       {/* SECTION 1: ANGGOTA AKTIF */}
       <div className="space-y-4 w-full">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Anggota Aktif ({activeMembers.length})</span>
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+            Anggota Aktif ({activeMembers.length})
+          </span>
           <div className="w-full border-t border-slate-200"></div>
         </div>
         
         {activeMembers.length === 0 ? (
-          <p className="text-xs text-slate-400 italic py-2">Tidak ada data anggota aktif terdaftar pada kategori peran ini.</p>
+          <p className="text-xs text-slate-400 italic py-2">
+            {searchQuery ? `Tidak ada anggota aktif yang cocok dengan kata kunci "${searchQuery}".` : 'Tidak ada data anggota aktif terdaftar pada kategori peran ini.'}
+          </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 w-full">
             {activeMembers.map(user => renderMemberCard(user))}
@@ -325,12 +399,16 @@ export default function ManajemenAnggotaPage() {
       {/* SECTION 2: ANGGOTA PASIF / KELUAR */}
       <div className="space-y-4 pt-4 w-full">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Anggota Pasif / Keluar ({passiveMembers.length})</span>
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+            Anggota Pasif / Keluar ({passiveMembers.length})
+          </span>
           <div className="w-full border-t border-slate-200"></div>
         </div>
 
         {passiveMembers.length === 0 ? (
-          <p className="text-xs text-slate-400 italic py-2">Tidak ada anggota pasif atau purna keluar terdaftar.</p>
+          <p className="text-xs text-slate-400 italic py-2">
+            {searchQuery ? `Tidak ada anggota pasif/keluar yang cocok dengan kata kunci "${searchQuery}".` : 'Tidak ada anggota pasif atau purna keluar terdaftar.'}
+          </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 w-full">
             {passiveMembers.map(user => renderMemberCard(user))}
@@ -372,7 +450,6 @@ export default function ManajemenAnggotaPage() {
                       onChange={e => setAccountForm({ ...accountForm, password: e.target.value })} 
                     />
                   ) : (
-                    // TAMPILAN PASSWORD TERKUNCI AUTO-GENERATE UNTUK REGISTRASI
                     <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-500 font-mono flex items-center justify-between cursor-not-allowed select-none">
                       <span>••••••••</span>
                       <span className="text-[10px] text-indigo-600 font-sans font-semibold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
@@ -520,7 +597,7 @@ export default function ManajemenAnggotaPage() {
         </div>
       )}
 
-      {/* ================= MODAL KONFIRMASI PEMBUATAN AKUN SUKSES (WITH BACKDROP BLUR) ================= */}
+      {/* MODAL KONFIRMASI PEMBUATAN AKUN SUKSES */}
       {createdAccountSuccess && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200"
@@ -535,7 +612,7 @@ export default function ManajemenAnggotaPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Akun Berhasil Dibuat</h3>
+              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Akun Berhasil Diterbitkan! 🎉</h3>
               <p className="text-xs font-medium text-slate-500 mt-1">Data anggota resmi tersimpan di dalam sistem.</p>
             </div>
 
@@ -561,7 +638,7 @@ export default function ManajemenAnggotaPage() {
               </div>
 
               {/* Notifikasi Pengiriman Email */}
-              <div className="p-3.5 bg-emerald-50 border-emerald-300/80 rounded-2xl flex items-start gap-3 text-xs text-emerald-900 font-medium">
+              <div className="p-3.5 bg-emerald-50 border border-emerald-300/80 rounded-2xl flex items-start gap-3 text-xs text-emerald-900 font-medium">
                 <span className="text-lg leading-none shrink-0">📧</span>
                 <p className="leading-relaxed">
                   Password sementara telah di-generate otomatis. Instruksi verifikasi & login telah dikirimkan ke <b className="text-emerald-950 underline decoration-emerald-400">{createdAccountSuccess.email}</b>.
@@ -572,9 +649,9 @@ export default function ManajemenAnggotaPage() {
               <button
                 type="button"
                 onClick={() => setCreatedAccountSuccess(null)}
-                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-black font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all uppercase tracking-wider border border-slate-800 active:scale-[0.99]"
+                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all uppercase tracking-wider border border-slate-800 active:scale-[0.99]"
               >
-                 Tutup
+                Mengerti & Tutup
               </button>
             </div>
 
@@ -584,7 +661,7 @@ export default function ManajemenAnggotaPage() {
     </div>
   );
 
-  // REUSABLE CARD RENDER FUNCTION: Overhaul Penuh UI Premium Kontras Tinggi & Accordion SP Inline
+  // REUSABLE CARD RENDER FUNCTION
   function renderMemberCard(user: UserData) {
     const spCount = user.suratPeringatan?.length || 0;
     const isLockedOutBySp3 = spCount >= 3 || user.status === 'Keluar';
@@ -638,7 +715,7 @@ export default function ManajemenAnggotaPage() {
             </button>
           </div>
 
-          {/* --- PANEL DROPDOWN INLINE: Rincian Lembaran SP Kontras Tinggi --- */}
+          {/* PANEL DROPDOWN INLINE: Rincian Lembaran SP */}
           {spCount > 0 && isSpExpanded && (
             <div className="p-3 bg-rose-50/40 rounded-xl border border-rose-200/60 space-y-2.5 animate-in slide-in-from-top-2 duration-200">
               <p className="text-[9px] font-bold uppercase text-rose-800 tracking-wider">Arsip Surat Peringatan Resmi:</p>
